@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/context"
 )
 
@@ -53,12 +52,12 @@ func Setup(ctx *context.Context) error {
 
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	result, err := command.Execute(cmd)
+	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("container error: %w", err)
-	} else if result.ExitCode >= 1 {
-		return fmt.Errorf("container error: %s", result.Error)
 	}
 
 	// Restart container
