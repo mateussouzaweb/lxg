@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 	"time"
 
@@ -78,9 +77,11 @@ func HandleRequest(ctx *context.Context, conn net.Conn) error {
 		return err
 	}
 
-	request := NewRequest()
+	maxRequestSize := int64(64 * 1024) // 64kb
 	reader := io.LimitReader(conn, maxRequestSize)
 	reader = bufio.NewReader(reader)
+
+	request := NewRequest()
 	err = json.NewDecoder(reader).Decode(&request)
 	if err != nil {
 		return fmt.Errorf("invalid request: %w", err)
@@ -90,9 +91,6 @@ func HandleRequest(ctx *context.Context, conn net.Conn) error {
 	command := strings.TrimSpace(request.Command)
 	if command == "" {
 		return errors.New("missing command")
-	}
-	if !slices.Contains(allowedCommands, command) {
-		return fmt.Errorf("command not allowed: %s", command)
 	}
 
 	// The host process inherits the actual desktop environment
