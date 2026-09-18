@@ -23,6 +23,8 @@ func Setup(ctx *context.Context) error {
 
 	// Attach profile to container
 	// When attached, stop container to reflect changes
+	fmt.Printf("Attaching desktop profile to container %s...\n", ctx.Container)
+
 	attached, err := AttachProfile(ctx)
 	if err != nil {
 		return fmt.Errorf("profile attach error: %w", err)

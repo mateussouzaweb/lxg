@@ -53,7 +53,7 @@ func handle(args []string) error {
 
 		// Extract container name
 		container := "ubuntu"
-		if len(args) > 1 {
+		if len(args) > 0 {
 			container = args[0]
 			args = extract(args, container)
 		}
