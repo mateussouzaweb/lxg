@@ -15,10 +15,8 @@ import (
 // Init socket listener to receive communication
 func InitSocket(ctx *context.Context) error {
 
-	// Only main user can run this socket
-	if os.Geteuid() != allowedUID {
-		return fmt.Errorf("must run as uid %d", allowedUID)
-	}
+	// Path to LXG socket
+	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)
 
 	// Remove old socket if exists
 	err := os.Remove(socketPath)
@@ -72,7 +70,7 @@ func InitSocket(ctx *context.Context) error {
 		// Handle connection on worker
 		go func(conn net.Conn) {
 			defer conn.Close()
-			err := HandleRequest(conn)
+			err := HandleRequest(ctx, conn)
 			if err != nil {
 				err = WriteError(conn, err)
 			}

@@ -37,6 +37,8 @@ func CreateRequest(ctx *context.Context) error {
 	request.Args = args
 	request.Wait = waitCmd
 
+	// Connect to LXG socket
+	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return fmt.Errorf("connect to host error: %w", err)

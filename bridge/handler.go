@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mateussouzaweb/lxg/context"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,7 +33,7 @@ func WriteError(conn net.Conn, err error) error {
 }
 
 // HandleRequest on connection
-func HandleRequest(conn net.Conn) error {
+func HandleRequest(ctx *context.Context, conn net.Conn) error {
 
 	dateTime := time.Now()
 	fmt.Printf("Received new request: %s\n", dateTime.Format(time.RFC3339))
@@ -64,8 +65,10 @@ func HandleRequest(conn net.Conn) error {
 	if controlErr != nil {
 		return fmt.Errorf("read peer credentials error: %w", controlErr)
 	}
-	if credentials.Uid != allowedUID {
-		return fmt.Errorf("authentication error: unauthorized uid: %d", credentials.Uid)
+
+	requestUID := fmt.Sprintf("%d", credentials.Uid)
+	if requestUID != ctx.UID {
+		return fmt.Errorf("authentication error: unauthorized uid: %s", requestUID)
 	}
 
 	// Read request information

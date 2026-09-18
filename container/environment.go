@@ -11,9 +11,9 @@ import (
 // InitEnvironment on container to add LXG support
 func InitEnvironment(ctx *context.Context) error {
 
-	// Only main user need desktop session configuration
+	// User must be greater than 1000 to enable desktop session configuration
 	uid := os.Getuid()
-	if uid != allowedUID {
+	if uid < 1000 {
 		return nil
 	}
 

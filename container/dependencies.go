@@ -98,8 +98,10 @@ func InstallDependencies(ctx *context.Context) error {
 // EnsureUID for any user on container
 func EnsureUID(ctx *context.Context) error {
 
+	// User must be greater than 1000
 	// Check for existing user
-	requiredUID := fmt.Sprintf("%v", allowedUID)
+	currentUID := max(os.Getuid(), 1000)
+	requiredUID := fmt.Sprintf("%v", currentUID)
 	existing, err := user.LookupId(requiredUID)
 	if err == nil {
 		fmt.Printf("Found existing user for UID %s: %s\n", requiredUID, existing.Username)
