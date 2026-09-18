@@ -13,7 +13,7 @@ func InitEnvironment(ctx *context.Context) error {
 
 	// Only main user need desktop session configuration
 	uid := os.Getuid()
-	if uid != 1000 {
+	if uid != allowedUID {
 		return nil
 	}
 

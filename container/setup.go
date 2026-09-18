@@ -9,7 +9,17 @@ import (
 // Setup LXG support on container (self installer)
 func Setup(ctx *context.Context) error {
 
-	err := InstallScripts(ctx)
+	err := EnsureUID(ctx)
+	if err != nil {
+		return fmt.Errorf("setup error: %w", err)
+	}
+
+	err = InstallScripts(ctx)
+	if err != nil {
+		return fmt.Errorf("setup error: %w", err)
+	}
+
+	err = InstallDependencies(ctx)
 	if err != nil {
 		return fmt.Errorf("setup error: %w", err)
 	}
