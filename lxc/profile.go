@@ -40,6 +40,13 @@ func SetupProfile(ctx *context.Context) (bool, error) {
 		return false, fmt.Errorf("profile read error: %w", err)
 	}
 
+	// Define UID on profile
+	profileSpec = bytes.ReplaceAll(
+		profileSpec,
+		[]byte(":UID"),
+		[]byte(ctx.UID),
+	)
+
 	// Create profile from specs
 	args = []string{"profile", "create", profileName}
 	stdin := bytes.NewBuffer(profileSpec)

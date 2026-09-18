@@ -20,7 +20,7 @@ func RunCommand(ctx *context.Context) error {
 	// Call LXC exec on container
 	args := append([]string{
 		"exec", ctx.Container, "--",
-		"sudo", "-i", "-u", ctx.Username,
+		"su", "--login", ctx.UID,
 	}, ctx.Args...)
 
 	cmd := exec.Command("lxc", args...)

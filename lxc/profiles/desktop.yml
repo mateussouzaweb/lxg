@@ -1,7 +1,7 @@
 description: Profile for GUI applications with LXG
 config:
   boot.autostart: "true"
-  raw.idmap: both 1000 1000
+  raw.idmap: both :UID :UID
   security.nesting: "true"
   security.syscalls.intercept.mknod: "true"
   security.syscalls.intercept.setxattr: "true"
@@ -10,8 +10,8 @@ devices:
     type: gpu
   run-socket:
     type: disk
-    source: /run/user/1000
-    path: /lxg/run/user/1000
+    source: /run/user/:UID
+    path: /lxg/run/user/:UID
   x11-socket:
     type: disk
     source: /tmp/.X11-unix

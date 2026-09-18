@@ -51,23 +51,16 @@ func handle(args []string) error {
 		return bridge.InitSocket(ctx)
 	case "setup", "start", "stop", "run":
 
-		// Extract container and username
+		// Extract container name
 		container := "ubuntu"
-		username := "ubuntu"
-
 		if len(args) > 1 {
 			container = args[0]
 			args = extract(args, container)
-		}
-		if len(args) > 1 {
-			username = args[0]
-			args = extract(args, username)
 		}
 
 		// Create context
 		ctx := context.NewContext(args)
 		ctx.Container = container
-		ctx.Username = username
 
 		switch command {
 		case "setup":

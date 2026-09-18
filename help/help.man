@@ -4,10 +4,10 @@ Usage:
 
   lxg help / --help / -h
   lxg listen [ARGS...]
-  lxg setup [CONTAINER] [USERNAME] [ARGS...]
+  lxg setup [CONTAINER] [ARGS...]
   lxg start [CONTAINER] [ARGS...]
   lxg stop [CONTAINER] [ARGS...]
-  lxg run [CONTAINER] [USERNAME] [ARGS...]
+  lxg run [CONTAINER] [ARGS...]
 
   lxg container setup [ARGS...]
   lxg container init [ARGS...]
