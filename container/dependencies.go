@@ -88,7 +88,7 @@ func InstallDependencies(ctx *context.Context) error {
 			return fmt.Errorf("dependency error: %s", result.Error)
 		}
 
-		fmt.Println("All packages installed successfully!")
+		fmt.Printf("All packages installed successfully!\n")
 		return nil
 	}
 
@@ -123,14 +123,21 @@ func EnsureUID(ctx *context.Context) error {
 
 	// Create user on container
 	cmd := exec.Command("sudo", "bash", "-c", fmt.Sprintf(`
+		ID="%s"
+		NAME="%s"
+
 		if command -v useradd &>/dev/null; then
-			sudo useradd -u %s -m -s /bin/bash "%s"
+			sudo useradd -u "${ID}" -m -s /bin/bash "${NAME}"
+			sudo usermod -aG wheel "${NAME}"
+			sudo passwd "${NAME}"
 		elif command -v adduser &>/dev/null; then
-			sudo adduser -u %s -D -s /bin/bash "%s"
+			sudo adduser -u "${ID}" -D -s /bin/bash "${NAME}"
+			sudo adduser "${NAME}" wheel
+			sudo passwd "${NAME}"
 		else
 			echo "Error: No suitable command found to create user."
 			exit 1
-		fi`, requiredUID, username, requiredUID, username),
+		fi`, requiredUID, username),
 	)
 
 	cmd.Stdin = os.Stdin
