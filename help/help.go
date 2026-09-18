@@ -18,6 +18,6 @@ func Print(ctx *context.Context) error {
 		return err
 	}
 
-	fmt.Println(string(content))
+	fmt.Printf("%s", string(content))
 	return nil
 }
