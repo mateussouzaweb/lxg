@@ -1,0 +1,32 @@
+LXG - Run Desktop Apps on LXC Containers
+
+Usage:
+
+  lxg help / --help / -h
+  lxg listen [ARGS...]
+  lxg setup [CONTAINER] [USERNAME] [ARGS...]
+  lxg start [CONTAINER] [ARGS...]
+  lxg stop [CONTAINER] [ARGS...]
+  lxg run [CONTAINER] [USERNAME] [ARGS...]
+
+  lxg container setup [ARGS...]
+  lxg container init [ARGS...]
+  lxg container request [COMMAND] [ARGS...]
+
+Commands:
+
+  help       Print this help message
+
+Host Commands:
+
+  listen     Start the host integration socket (bridge)
+  setup      Configure LXG support on host and container
+  start      Start container from host
+  stop       Stop container from host
+  run        Run command on container from host
+
+Container Commands:
+
+  setup      Configure internal LXG support on container
+  init       Initialize LXG environment support
+  request    Request command execution on host via bridge

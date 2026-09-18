@@ -1,0 +1,124 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"slices"
+
+	"github.com/mateussouzaweb/lxg/bridge"
+	"github.com/mateussouzaweb/lxg/container"
+	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/help"
+	"github.com/mateussouzaweb/lxg/lxc"
+)
+
+// Extract value from args
+func extract(args []string, value string) []string {
+	index := slices.Index(args, value)
+	return append(args[:index], args[index+1:]...)
+}
+
+// Handle command based on args
+func handle(args []string) error {
+
+	// Extract command
+	command := args[0]
+	args = extract(args, command)
+
+	// Check if command was called from host or container
+	// Need to block execution based on context
+	isContainer, err := container.IsContainer()
+	if err != nil {
+		return err
+	}
+
+	hostOnly := []string{"listen", "setup", "start", "stop", "run"}
+	containerOnly := []string{"container"}
+
+	if isContainer && slices.Contains(hostOnly, command) {
+		return fmt.Errorf("method can be run only on host")
+	} else if !isContainer && slices.Contains(containerOnly, command) {
+		return fmt.Errorf("method can be run only on container")
+	}
+
+	// Handle commands
+	switch command {
+	case "help", "--help", "-h":
+		ctx := context.NewContext(args)
+		return help.Print(ctx)
+	case "listen":
+		ctx := context.NewContext(args)
+		return bridge.InitSocket(ctx)
+	case "setup", "start", "stop", "run":
+
+		// Extract container and username
+		container := "ubuntu"
+		username := "ubuntu"
+
+		if len(args) > 1 {
+			container = args[0]
+			args = extract(args, container)
+		}
+		if len(args) > 1 {
+			username = args[0]
+			args = extract(args, username)
+		}
+
+		// Create context
+		ctx := context.NewContext(args)
+		ctx.Container = container
+		ctx.Username = username
+
+		switch command {
+		case "setup":
+			return lxc.Setup(ctx)
+		case "start":
+			return lxc.StartContainer(ctx)
+		case "stop":
+			return lxc.StopContainer(ctx)
+		case "run":
+			return lxc.RunCommand(ctx)
+		}
+
+	case "container":
+		if len(args) == 0 {
+			return fmt.Errorf("missing command for container")
+		}
+
+		subcommand := args[0]
+		args = extract(args, subcommand)
+
+		switch subcommand {
+		case "setup":
+			ctx := context.NewContext(args)
+			return container.Setup(ctx)
+		case "init":
+			ctx := context.NewContext(args)
+			return container.Init(ctx)
+		case "request":
+			ctx := context.NewContext(args)
+			return bridge.CreateRequest(ctx)
+		}
+
+		return fmt.Errorf("unknown container command: %s", subcommand)
+	}
+
+	return fmt.Errorf("unknown command: %s", command)
+}
+
+func main() {
+
+	// Ensure minimal arguments
+	if len(os.Args) < 2 {
+		help.Print(&context.Context{})
+		os.Exit(2)
+	}
+
+	// Handle command
+	err := handle(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+}

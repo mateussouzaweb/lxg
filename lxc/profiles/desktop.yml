@@ -1,0 +1,22 @@
+description: Profile for GUI applications with LXG
+config:
+  boot.autostart: "true"
+  raw.idmap: both 1000 1000
+  security.nesting: "true"
+  security.syscalls.intercept.mknod: "true"
+  security.syscalls.intercept.setxattr: "true"
+devices:
+  gpu:
+    type: gpu
+  run-socket:
+    type: disk
+    source: /run/user/1000
+    path: /lxg/run/user/1000
+  x11-socket:
+    type: disk
+    source: /tmp/.X11-unix
+    path: /lxg/tmp/.X11-unix
+  lxg-binary:
+    type: disk
+    source: /usr/local/bin/lxg
+    path: /usr/local/bin/lxg
