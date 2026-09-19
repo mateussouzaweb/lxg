@@ -1,0 +1,65 @@
+package bridge
+
+import (
+	"context"
+	"errors"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
+	"github.com/mateussouzaweb/lxg/command"
+)
+
+// Init bridge services in parallel
+func Init(ctx *command.Context) error {
+
+	// Context cancelled when SIGINT or SIGTERM is received
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Internal context to cancel all services if any fails
+	groupCtx, cancel := context.WithCancel(signalCtx)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 2)
+
+	// Start DBus proxy in background
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := InitDBus(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Start Socket listener in background
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := InitSocket(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Wait for all services to stop in a separate goroutine
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Collect first error if any service failed
+	var firstErr error
+	for err := range errChan {
+		if firstErr == nil && !errors.Is(err, context.Canceled) {
+			firstErr = err
+		}
+	}
+
+	return firstErr
+}

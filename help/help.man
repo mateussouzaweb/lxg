@@ -19,7 +19,7 @@ Commands:
 
 Host Commands:
 
-  listen     Start the host integration socket (bridge)
+  listen     Start the host integration bridge
   setup      Configure LXG support on host and container
   start      Start container from host
   stop       Stop container from host

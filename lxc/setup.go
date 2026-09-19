@@ -30,7 +30,7 @@ func Setup(ctx *command.Context) error {
 		return fmt.Errorf("profile attach error: %w", err)
 	} else if attached {
 		fmt.Printf("Desktop profile attached to container.\n")
-		fmt.Printf("Rebooting container...\n")
+		fmt.Printf("Rebooting container to reflect...\n")
 		err = StopContainer(ctx)
 		if err != nil {
 			return fmt.Errorf("profile attach error: %w", err)

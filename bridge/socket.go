@@ -1,19 +1,18 @@
 package bridge
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/mateussouzaweb/lxg/command"
 )
 
 // Init socket listener to receive communication
-func InitSocket(ctx *command.Context) error {
+func InitSocket(ctx *command.Context, cancel context.Context) error {
 
 	// Path to LXG socket
 	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)
@@ -44,17 +43,13 @@ func InitSocket(ctx *command.Context) error {
 		return fmt.Errorf("chmod socket error: %w", err)
 	}
 
-	// Listen for termination signals to gracefully close the listener
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(signalChan)
-
+	// Close listener when context is cancelled
 	go func() {
-		<-signalChan
+		<-cancel.Done()
 		listener.Close()
 	}()
 
-	fmt.Printf("Bridge listening on %s\n", socketPath)
+	fmt.Printf("Bridge socket listening on %s\n", socketPath)
 
 	for {
 		conn, err := listener.Accept()
@@ -63,7 +58,7 @@ func InitSocket(ctx *command.Context) error {
 				break
 			}
 
-			fmt.Printf("Bridge error: %s\n", err)
+			fmt.Printf("Bridge socket error: %s\n", err)
 			continue
 		}
 
@@ -75,11 +70,11 @@ func InitSocket(ctx *command.Context) error {
 				err = WriteError(conn, err)
 			}
 			if err != nil {
-				fmt.Printf("Bridge error: %s\n", err)
+				fmt.Printf("Bridge socket error: %s\n", err)
 			}
 		}(conn)
 	}
 
-	fmt.Printf("Bridge closed\n")
+	fmt.Printf("Bridge socket closed.\n")
 	return nil
 }

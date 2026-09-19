@@ -48,7 +48,7 @@ func handle(args []string) error {
 		return help.Print(ctx)
 	case "listen":
 		ctx := command.NewContext(args)
-		return bridge.InitSocket(ctx)
+		return bridge.Init(ctx)
 	case "setup", "start", "stop", "run":
 
 		// Extract container name

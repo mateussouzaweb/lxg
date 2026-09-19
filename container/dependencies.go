@@ -25,7 +25,7 @@ func EnsureUID(ctx *command.Context) error {
 	fmt.Printf("WARNING!\n")
 	fmt.Printf("Container has no user with UID %s.\n", requiredUID)
 	fmt.Printf("Make sure to create a new user with matching UID.\n")
-	fmt.Printf("If applicable, add user to sudoers too!")
+	fmt.Printf("If applicable, add the user to sudoers too!")
 
 	return nil
 }

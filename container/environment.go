@@ -31,7 +31,6 @@ func InitEnvironment(ctx *command.Context) error {
 		hostPath("/pulse/native"): userPath("/pulse/native"),
 		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
 		hostPath("/wayland-0"):    userPath("/wayland-0"),
-		hostPath("/bus"):          userPath("/bus"),
 		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
 		hostPath("/lxg.sock"):     userPath("/lxg.sock"),
 		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
@@ -134,7 +133,7 @@ func InitEnvironment(ctx *command.Context) error {
 		mutterXAuth = matches[0]
 	}
 
-	// Find DBUS proxy if present
+	// Set dBus address if proxy is present
 	dBusAddress := ""
 	_, err = os.Stat(hostPath("/lxg.bus"))
 	if err != nil && !os.IsNotExist(err) {
