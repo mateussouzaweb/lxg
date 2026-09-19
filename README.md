@@ -79,16 +79,27 @@ EOF
 
 ## Container Requirements
 
-The following packages are required inside the container to run desktop applications properly. When installing desktop applications from inside the container, they may be included as dependencies automatically. Otherwise, install them with the package manager:
+The following packages are required inside the container to run desktop applications properly. When installing desktop applications from inside the container, they may be included as dependencies automatically. Otherwise, install them with the package manager.
 
-- X11: `dbus-x11 xauth`
-- Wayland: `libwayland-client0 qtwayland5`
-- Mesa/GPU: `libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers`
-- Pipewire: `pipewire pipewire-pulse wireplumber`
-- Secrets: `gnome-keyring libsecret`
-- XDG: `xdg-utils xdg-desktop-portal`
-- Gnome: `xdg-desktop-portal-gtk`
-- KDE: `xdg-desktop-portal-kde kwayland`
-- Cosmic: `xdg-desktop-portal-cosmic`
+NOTE: Package names below are for Debian/Ubuntu based containers and names may vary on Arch, Fedora, or Alpine.
 
-NOTE: Package names above are for Debian/Ubuntu based containers. Names may vary on Arch, Fedora, or Alpine.
+- Mesa/GPU: `mesa-vulkan-drivers vulkan-tools`
+- Wayland: `wayland-utils`
+- X11: `mesa-utils x11-utils x11-xserver-utils`
+- XDG: `xdg-utils xdg-user-dirs dbus-bin dbus-user-session`
+- PipeWire: `pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils`
+- Secrets: `libsecret-1-0 libsecret-tools`
+- Fonts: `fontconfig fonts-liberation fonts-dejavu fonts-ubuntu fonts-noto fonts-roboto fonts-open-sans fonts-firacode`
+- Others: `zenity`
+
+When installing Pipewire, is also important to stop the service inside the container to avoid conflict with host:
+
+```bash
+sudo systemctl --global mask wireplumber.service \
+    pipewire.socket pipewire.service \
+    pipewire-pulse.socket pipewire-pulse.service
+
+systemctl --user stop wireplumber.service \
+    pipewire.socket pipewire.service \
+    pipewire-pulse.socket pipewire-pulse.service
+```
