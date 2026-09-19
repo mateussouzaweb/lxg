@@ -17,11 +17,39 @@ func InitEnvironment(ctx *context.Context) error {
 		return nil
 	}
 
-	runtimeDir := fmt.Sprintf("/run/user/%d", uid)
 	hostRuntime := fmt.Sprintf("/lxg/run/user/%d", uid)
+	hostPath := func(path string) string {
+		return fmt.Sprintf("%s%s", hostRuntime, path)
+	}
+
+	userRuntime := fmt.Sprintf("/run/user/%d", uid)
+	userPath := func(path string) string {
+		return fmt.Sprintf("%s%s", userRuntime, path)
+	}
+
+	list := map[string]string{
+		hostPath("/pulse/native"): userPath("/pulse/native"),
+		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
+		hostPath("/wayland-0"):    userPath("/wayland-0"),
+		hostPath("/bus"):          userPath("/bus"),
+		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
+		hostPath("/lxg.sock"):     userPath("/lxg.sock"),
+		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
+		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
+	}
 
 	// Ensure runtime directory exists
-	err := os.MkdirAll(runtimeDir, 0700)
+	err := os.MkdirAll(userPath(""), 0700)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(userPath("/pulse"), 0700)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll("/tmp/.X11-unix", 01777)
 	if err != nil {
 		return err
 	}
@@ -71,13 +99,10 @@ func InitEnvironment(ctx *context.Context) error {
 	}
 
 	// Symlink host runtime sockets
-	sockets := []string{"pipewire-0", "wayland-0", "bus", "lxg.sock"}
-	for _, socket := range sockets {
-		hostSocket := filepath.Join(hostRuntime, socket)
-		targetSocket := filepath.Join(runtimeDir, socket)
+	for source, destination := range list {
 
 		// Check if symlink already is pointing to host socket
-		match, err := symlinkMatch(hostSocket, targetSocket)
+		match, err := symlinkMatch(source, destination)
 		if err != nil {
 			return err
 		} else if match {
@@ -85,44 +110,13 @@ func InitEnvironment(ctx *context.Context) error {
 		}
 
 		// Remove current entry if necessary
-		err = removeExisting(targetSocket)
+		err = removeExisting(destination)
 		if err != nil {
 			return err
 		}
 
 		// Make symlink to host socket
-		err = os.Symlink(hostSocket, targetSocket)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Symlink X11 display sockets
-	err = os.MkdirAll("/tmp/.X11-unix", 01777)
-	if err != nil {
-		return err
-	}
-
-	for _, display := range []string{"X0", "X1"} {
-		hostDisplay := filepath.Join("/lxg/tmp/.X11-unix", display)
-		targetDisplay := filepath.Join("/tmp/.X11-unix", display)
-
-		// Check if symlink already is pointing to host display
-		match, err := symlinkMatch(hostDisplay, targetDisplay)
-		if err != nil {
-			return err
-		} else if match {
-			continue
-		}
-
-		// Remove current entry if necessary
-		err = removeExisting(targetDisplay)
-		if err != nil {
-			return err
-		}
-
-		// Make symlink to host display
-		err = os.Symlink(hostDisplay, targetDisplay)
+		err = os.Symlink(source, destination)
 		if err != nil {
 			return err
 		}
@@ -140,17 +134,36 @@ func InitEnvironment(ctx *context.Context) error {
 		mutterXAuth = matches[0]
 	}
 
+	// Find DBUS proxy if present
+	dBusAddress := ""
+	_, err = os.Stat(hostPath("/lxg.bus"))
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if err == nil {
+		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/lxg.bus"))
+	}
+
 	// Export environment variables
+	xdgDesktop := "GNOME"
+	xdgMenuPrefix := "gnome-"
+	xdgRuntimeDir := userPath("")
+	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
 	variables := map[string]string{
-		"LXG_CONTAINER":            "1",
-		"DISPLAY":                  ":0",
-		"WAYLAND_DISPLAY":          "wayland-0",
-		"XDG_RUNTIME_DIR":          runtimeDir,
-		"PULSE_SERVER":             fmt.Sprintf("unix:%s/pipewire-0", runtimeDir),
-		"DBUS_SESSION_BUS_ADDRESS": fmt.Sprintf("unix:path=%s/bus", runtimeDir),
-		"XDG_CURRENT_DESKTOP":      "GNOME",
-		"XDG_MENU_PREFIX":          "gnome-",
-		"XAUTHORITY":               mutterXAuth,
+		"LXG_CONTAINER":       "1",
+		"DISPLAY":             ":0",
+		"WAYLAND_DISPLAY":     "wayland-0",
+		"XDG_SESSION_TYPE":    "wayland",
+		"XDG_RUNTIME_DIR":     xdgRuntimeDir,
+		"XDG_CURRENT_DESKTOP": xdgDesktop,
+		"XDG_MENU_PREFIX":     xdgMenuPrefix,
+		"PULSE_SERVER":        pulseServer,
+	}
+
+	if mutterXAuth != "" {
+		variables["XAUTHORITY"] = mutterXAuth
+	}
+	if dBusAddress != "" {
+		variables["DBUS_SESSION_BUS_ADDRESS"] = dBusAddress
 	}
 
 	// Use export statements for the shell to evaluate
