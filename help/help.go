@@ -4,14 +4,14 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 //go:embed help.man
 var helpFS embed.FS
 
 // Print help message
-func Print(ctx *context.Context) error {
+func Print(ctx *command.Context) error {
 
 	content, err := helpFS.ReadFile("help.man")
 	if err != nil {

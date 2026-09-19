@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // RunCommand on container based on given args
-func RunCommand(ctx *context.Context) error {
+func RunCommand(ctx *command.Context) error {
 
 	command := ctx.Args[0]
 	args := []string{}

@@ -6,14 +6,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 //go:embed scripts/*.sh
 var scriptsFS embed.FS
 
 // InstallScripts on container
-func InstallScripts(ctx *context.Context) error {
+func InstallScripts(ctx *command.Context) error {
 
 	list := map[string]string{
 		"/usr/local/bin/gio":       "scripts/gio.sh",

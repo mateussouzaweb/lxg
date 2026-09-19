@@ -7,11 +7,11 @@ import (
 	"os"
 	"slices"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // CreateRequest to perform command on host, via socket
-func CreateRequest(ctx *context.Context) error {
+func CreateRequest(ctx *command.Context) error {
 
 	args := ctx.Args
 	if len(args) == 0 {

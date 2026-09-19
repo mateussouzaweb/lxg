@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"github.com/mateussouzaweb/lxg/bridge"
+	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/container"
-	"github.com/mateussouzaweb/lxg/context"
 	"github.com/mateussouzaweb/lxg/help"
 	"github.com/mateussouzaweb/lxg/lxc"
 )
@@ -22,8 +22,8 @@ func extract(args []string, value string) []string {
 func handle(args []string) error {
 
 	// Extract command
-	command := args[0]
-	args = extract(args, command)
+	name := args[0]
+	args = extract(args, name)
 
 	// Check if command was called from host or container
 	// Need to block execution based on context
@@ -35,19 +35,19 @@ func handle(args []string) error {
 	hostOnly := []string{"listen", "setup", "start", "stop", "run"}
 	containerOnly := []string{"container"}
 
-	if isContainer && slices.Contains(hostOnly, command) {
+	if isContainer && slices.Contains(hostOnly, name) {
 		return fmt.Errorf("method can be run only on host")
-	} else if !isContainer && slices.Contains(containerOnly, command) {
+	} else if !isContainer && slices.Contains(containerOnly, name) {
 		return fmt.Errorf("method can be run only on container")
 	}
 
 	// Handle commands
-	switch command {
+	switch name {
 	case "help", "--help", "-h":
-		ctx := context.NewContext(args)
+		ctx := command.NewContext(args)
 		return help.Print(ctx)
 	case "listen":
-		ctx := context.NewContext(args)
+		ctx := command.NewContext(args)
 		return bridge.InitSocket(ctx)
 	case "setup", "start", "stop", "run":
 
@@ -59,10 +59,10 @@ func handle(args []string) error {
 		}
 
 		// Create context
-		ctx := context.NewContext(args)
+		ctx := command.NewContext(args)
 		ctx.Container = container
 
-		switch command {
+		switch name {
 		case "setup":
 			return lxc.Setup(ctx)
 		case "start":
@@ -83,27 +83,27 @@ func handle(args []string) error {
 
 		switch subcommand {
 		case "setup":
-			ctx := context.NewContext(args)
+			ctx := command.NewContext(args)
 			return container.Setup(ctx)
 		case "init":
-			ctx := context.NewContext(args)
+			ctx := command.NewContext(args)
 			return container.Init(ctx)
 		case "request":
-			ctx := context.NewContext(args)
+			ctx := command.NewContext(args)
 			return bridge.CreateRequest(ctx)
 		}
 
 		return fmt.Errorf("unknown container command: %s", subcommand)
 	}
 
-	return fmt.Errorf("unknown command: %s", command)
+	return fmt.Errorf("unknown command: %s", name)
 }
 
 func main() {
 
 	// Ensure minimal arguments
 	if len(os.Args) < 2 {
-		help.Print(&context.Context{})
+		help.Print(&command.Context{})
 		os.Exit(2)
 	}
 

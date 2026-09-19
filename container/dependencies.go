@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/user"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // EnsureUID for any user on container
-func EnsureUID(ctx *context.Context) error {
+func EnsureUID(ctx *command.Context) error {
 
 	// User must be greater than 1000
 	// Check for existing user

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/mateussouzaweb/lxg/command"
-	"github.com/mateussouzaweb/lxg/context"
 )
 
 //go:embed profiles/*.yml
@@ -17,7 +16,7 @@ var profileSpecFS embed.FS
 var profileName = "desktop"
 
 // SetupProfile on LXC installation
-func SetupProfile(ctx *context.Context) (bool, error) {
+func SetupProfile(ctx *command.Context) (bool, error) {
 
 	// Check if profile exists
 	// Exit code 1 means profile not exists
@@ -64,7 +63,7 @@ func SetupProfile(ctx *context.Context) (bool, error) {
 }
 
 // AttachProfile to LXC container
-func AttachProfile(ctx *context.Context) (bool, error) {
+func AttachProfile(ctx *command.Context) (bool, error) {
 
 	// Check if profile already is attached to instance
 	args := []string{"profile", "show", profileName}

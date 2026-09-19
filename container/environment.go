@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // InitEnvironment on container to add LXG support
-func InitEnvironment(ctx *context.Context) error {
+func InitEnvironment(ctx *command.Context) error {
 
 	// User must be greater than 1000 to enable desktop session configuration
 	uid := os.Getuid()

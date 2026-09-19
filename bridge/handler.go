@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 	"golang.org/x/sys/unix"
 )
 
@@ -32,7 +32,7 @@ func WriteError(conn net.Conn, err error) error {
 }
 
 // HandleRequest on connection
-func HandleRequest(ctx *context.Context, conn net.Conn) error {
+func HandleRequest(ctx *command.Context, conn net.Conn) error {
 
 	dateTime := time.Now()
 	fmt.Printf("Received new request: %s\n", dateTime.Format(time.RFC3339))

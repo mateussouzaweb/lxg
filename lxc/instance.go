@@ -9,11 +9,10 @@ import (
 	"time"
 
 	"github.com/mateussouzaweb/lxg/command"
-	"github.com/mateussouzaweb/lxg/context"
 )
 
 // ContainerStatus return the status of the container
-func ContainerStatus(ctx *context.Context) (string, error) {
+func ContainerStatus(ctx *command.Context) (string, error) {
 
 	// Check for status description
 	args := []string{"info", ctx.Container}
@@ -44,7 +43,7 @@ func ContainerStatus(ctx *context.Context) (string, error) {
 }
 
 // StartContainer if not started yet
-func StartContainer(ctx *context.Context) error {
+func StartContainer(ctx *command.Context) error {
 
 	// Check if already is running
 	status, err := ContainerStatus(ctx)
@@ -72,7 +71,7 @@ func StartContainer(ctx *context.Context) error {
 }
 
 // StopContainer if not stopped yet
-func StopContainer(ctx *context.Context) error {
+func StopContainer(ctx *command.Context) error {
 
 	// Check if already is stopped
 	status, err := ContainerStatus(ctx)
@@ -100,7 +99,7 @@ func StopContainer(ctx *context.Context) error {
 }
 
 // RestartContainer by stop and starting again
-func RestartContainer(ctx *context.Context) error {
+func RestartContainer(ctx *command.Context) error {
 
 	err := StopContainer(ctx)
 	if err != nil {

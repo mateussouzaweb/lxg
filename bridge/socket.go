@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // Init socket listener to receive communication
-func InitSocket(ctx *context.Context) error {
+func InitSocket(ctx *command.Context) error {
 
 	// Path to LXG socket
 	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)

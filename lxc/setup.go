@@ -5,11 +5,11 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/mateussouzaweb/lxg/context"
+	"github.com/mateussouzaweb/lxg/command"
 )
 
 // Setup LXG support on host and container
-func Setup(ctx *context.Context) error {
+func Setup(ctx *command.Context) error {
 
 	// Setup profile on host
 	fmt.Printf("Configuring desktop profile...\n")

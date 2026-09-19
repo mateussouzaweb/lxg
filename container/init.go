@@ -1,11 +1,9 @@
 package container
 
-import (
-	"github.com/mateussouzaweb/lxg/context"
-)
+import "github.com/mateussouzaweb/lxg/command"
 
 // Init LXG environment support
-func Init(ctx *context.Context) error {
+func Init(ctx *command.Context) error {
 
 	err := InitEnvironment(ctx)
 	if err != nil {
