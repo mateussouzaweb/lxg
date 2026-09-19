@@ -18,8 +18,11 @@ func RunCommand(ctx *context.Context) error {
 	}
 
 	// Call LXC exec on container
-	args := []string{"exec", ctx.Container, "--user", ctx.UID, "--"}
-	args = append(args, ctx.Args...)
+	// This pattern trigger the interactive session on user
+	args := append([]string{
+		"exec", ctx.Container, "--",
+		"sudo", "-i", "-u", fmt.Sprintf("#%s", ctx.UID),
+	}, ctx.Args...)
 
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdout = os.Stdout
