@@ -6,6 +6,34 @@ We chose LXC because by default it provides persistency and a complete Linux env
 
 In short, LXG provides desktop integration for your LXC containers.
 
+## Project Status
+
+This project works, but still are in the early stages of development and will present bugs or unexpected behaviors. My ultimate goal is to have two types of container setup:
+
+- **Isolated containers:** these are most isolated containers, sharing only few key services (GPU, audio and display). Designed for untrusted applications at the cost of no desktop integration for things like notifications, screen sharing and home folder access. In this mode, you will need to run a browser inside the container to open links with `xdg-open` from IDE that is also installed on the container for example.
+
+- **Integrated containers:** provide access to the full desktop of your host, including everything that is possible. This is the closest to `distrobox` experience model.
+
+See the table below for a more specific overview:
+
+-- | Isolated | Integrated
+--- | --- | ---
+Privileged | no | yes
+GPU | shared | shared
+Wayland | shared | shared
+X11 | shared | shared
+Pipewire | shared | shared
+Pulse | shared | shared
+Network | isolated | shared
+IPC | isolated | shared
+PID | isolated | shared
+D-BUS | isolated | shared
+UID | must match | must match
+User | isolated | shared - must match
+`$HOME` | isolated | shared - must match
+Runtime | partially isolated | shared
+Bridge | available | not necessary
+
 ## Building
 
 LXG can be built with Go. Also make sure to put the binary in the correct location:
@@ -24,6 +52,7 @@ sudo mv bin/lxg /usr/local/bin/lxg
 - LXG binary at `/usr/local/bin/lxg`.
 - UID >= `1000` - check with `echo $UID`.
 - Container with user matching UID + sudoers.
+- Package `xdg-dbus-proxy` installed on host.
 
 ## Usage
 
