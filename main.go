@@ -5,11 +5,12 @@ import (
 	"os"
 	"slices"
 
-	"github.com/mateussouzaweb/lxg/bridge"
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/container"
+	"github.com/mateussouzaweb/lxg/container/dbus"
 	"github.com/mateussouzaweb/lxg/help"
-	"github.com/mateussouzaweb/lxg/lxc"
+	"github.com/mateussouzaweb/lxg/host"
+	"github.com/mateussouzaweb/lxg/host/lxc"
 )
 
 // Extract value from args
@@ -48,7 +49,7 @@ func handle(args []string) error {
 		return help.Print(ctx)
 	case "listen":
 		ctx := command.NewContext(args)
-		return bridge.Init(ctx)
+		return host.Init(ctx)
 	case "setup", "start", "stop", "run":
 
 		// Extract container name
@@ -90,10 +91,10 @@ func handle(args []string) error {
 			return container.Init(ctx)
 		case "router":
 			ctx := command.NewContext(args)
-			return container.StartRouter(ctx)
+			return dbus.StartRouter(ctx)
 		case "request":
 			ctx := command.NewContext(args)
-			return bridge.CreateRequest(ctx)
+			return container.BridgeRequest(ctx)
 		}
 
 		return fmt.Errorf("unknown container command: %s", subcommand)

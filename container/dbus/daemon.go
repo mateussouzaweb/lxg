@@ -1,7 +1,8 @@
-package container
+package dbus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/mateussouzaweb/lxg/command"
-	"github.com/mateussouzaweb/lxg/container/dbus"
 )
 
 // EnsureRouter checks if the D-Bus router is running and starts it if necessary
@@ -27,7 +27,7 @@ func EnsureRouter(ctx *command.Context) error {
 
 	// Router is not responding, remove any stale socket
 	err = os.Remove(routerSocket)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove dbus socket error: %w", err)
 	}
 
@@ -80,6 +80,6 @@ func StartRouter(ctx *command.Context) error {
 
 	defer stop()
 
-	router := dbus.NewRouter(ctx)
+	router := NewRouter(ctx)
 	return router.Start(signalCtx)
 }

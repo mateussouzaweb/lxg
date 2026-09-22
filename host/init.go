@@ -1,4 +1,4 @@
-package bridge
+package host
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"github.com/mateussouzaweb/lxg/command"
+	"github.com/mateussouzaweb/lxg/host/bridge"
+	"github.com/mateussouzaweb/lxg/host/dbus"
 )
 
 // Init bridge services in parallel
@@ -29,7 +31,7 @@ func Init(ctx *command.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := InitDBus(ctx, groupCtx)
+		err := dbus.InitDBus(ctx, groupCtx)
 		if err != nil {
 			errChan <- err
 			cancel()
@@ -40,7 +42,7 @@ func Init(ctx *command.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := InitSocket(ctx, groupCtx)
+		err := bridge.InitSocket(ctx, groupCtx)
 		if err != nil {
 			errChan <- err
 			cancel()

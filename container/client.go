@@ -1,4 +1,4 @@
-package bridge
+package container
 
 import (
 	"encoding/json"
@@ -8,10 +8,11 @@ import (
 	"slices"
 
 	"github.com/mateussouzaweb/lxg/command"
+	"github.com/mateussouzaweb/lxg/host/bridge"
 )
 
-// CreateRequest to perform command on host, via socket
-func CreateRequest(ctx *command.Context) error {
+// BridgeRequest creates a new requisition to perform command on host, via socket
+func BridgeRequest(ctx *command.Context) error {
 
 	args := ctx.Args
 	if len(args) == 0 {
@@ -32,7 +33,7 @@ func CreateRequest(ctx *command.Context) error {
 	}
 
 	// Send request on socket and wait for response
-	request := NewRequest()
+	request := bridge.NewRequest()
 	request.Command = command
 	request.Args = args
 	request.Wait = waitCmd
@@ -51,7 +52,7 @@ func CreateRequest(ctx *command.Context) error {
 		return fmt.Errorf("send request error: %w", err)
 	}
 
-	response := NewResponse()
+	response := bridge.NewResponse()
 	err = json.NewDecoder(conn).Decode(&response)
 	if err != nil {
 		return fmt.Errorf("receive response error: %w", err)
