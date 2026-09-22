@@ -11,6 +11,7 @@ Usage:
 
   lxg container setup [ARGS...]
   lxg container init [ARGS...]
+  lxg container router [ARGS...]
   lxg container request [COMMAND] [ARGS...]
 
 Commands:
@@ -19,7 +20,7 @@ Commands:
 
 Host Commands:
 
-  listen     Start the host integration bridge
+  listen     Start the host integration bridge for system services
   setup      Configure LXG support on host and container
   start      Start container from host
   stop       Stop container from host
@@ -28,5 +29,6 @@ Host Commands:
 Container Commands:
 
   setup      Configure internal LXG support on container
-  init       Initialize LXG environment support
+  init       Initialize LXG environment support and system services
+  router     Run the D-Bus router daemon inside the container
   request    Request command execution on host via bridge

@@ -16,8 +16,8 @@ import (
 // Init DBUS proxy listener to receive communication
 func InitDBus(ctx *command.Context, cancel context.Context) error {
 
-	// Path to LXG DBUS proxy
-	proxyPath := fmt.Sprintf("/run/user/%s/lxg.bus", ctx.UID)
+	// Path to LXG DBUS host proxy
+	proxyPath := fmt.Sprintf("/run/user/%s/lxg.host.bus", ctx.UID)
 
 	// Only run if detect DBUS session address
 	sessionAddress := os.Getenv("DBUS_SESSION_BUS_ADDRESS")
@@ -51,17 +51,10 @@ func InitDBus(ctx *command.Context, cancel context.Context) error {
 
 	defer os.Remove(proxyPath)
 
-	// Start DBUS proxy
+	// Start DBUS proxy without filtering
 	args := []string{
 		sessionAddress,
 		proxyPath,
-		"--filter",
-		"--talk=org.freedesktop.portal.*",
-		"--talk=org.freedesktop.secrets",
-		"--talk=org.freedesktop.Notifications",
-		"--talk=org.freedesktop.ScreenSaver",
-		"--talk=org.kde.StatusNotifierWatcher",
-		"--own=org.mpris.MediaPlayer2.*",
 		"--log",
 	}
 

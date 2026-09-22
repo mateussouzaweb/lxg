@@ -31,7 +31,7 @@ func InitEnvironment(ctx *command.Context) error {
 		hostPath("/pulse/native"): userPath("/pulse/native"),
 		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
 		hostPath("/wayland-0"):    userPath("/wayland-0"),
-		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
+		hostPath("/lxg.host.bus"): userPath("/lxg.host.bus"),
 		hostPath("/lxg.sock"):     userPath("/lxg.sock"),
 		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
 		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
@@ -133,13 +133,14 @@ func InitEnvironment(ctx *command.Context) error {
 		mutterXAuth = matches[0]
 	}
 
-	// Set dBus address if proxy is present
+	// Set dBus address to router if present, fallback to native bus or host bus
 	dBusAddress := ""
-	_, err = os.Stat(hostPath("/lxg.bus"))
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	} else if err == nil {
-		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/lxg.bus"))
+	if _, err := os.Stat(userPath("/lxg.router.bus")); err == nil {
+		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/lxg.router.bus"))
+	} else if _, err := os.Stat(userPath("/bus")); err == nil {
+		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/bus"))
+	} else if _, err := os.Stat(hostPath("/lxg.host.bus")); err == nil {
+		dBusAddress = fmt.Sprintf("unix:path=%s", hostPath("/lxg.host.bus"))
 	}
 
 	// Export environment variables

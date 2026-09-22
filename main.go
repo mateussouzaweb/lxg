@@ -88,6 +88,9 @@ func handle(args []string) error {
 		case "init":
 			ctx := command.NewContext(args)
 			return container.Init(ctx)
+		case "router":
+			ctx := command.NewContext(args)
+			return container.StartRouter(ctx)
 		case "request":
 			ctx := command.NewContext(args)
 			return bridge.CreateRequest(ctx)

@@ -5,7 +5,14 @@ import "github.com/mateussouzaweb/lxg/command"
 // Init LXG environment support
 func Init(ctx *command.Context) error {
 
-	err := InitEnvironment(ctx)
+	// Ensure D-Bus router is running
+	err := EnsureRouter(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Init environment on container
+	err = InitEnvironment(ctx)
 	if err != nil {
 		return err
 	}
