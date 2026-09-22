@@ -6,23 +6,40 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/mateussouzaweb/lxg/command"
+	"github.com/mateussouzaweb/lxg/container/env"
 	"github.com/mateussouzaweb/lxg/host/bridge"
 )
 
 // BridgeRequest creates a new requisition to perform command on host, via socket
 func BridgeRequest(ctx *command.Context) error {
 
+	// Bridge cannot be run on isolated containers
+	if env.IsIsolated() {
+		return fmt.Errorf("not callable on isolated containers")
+	}
+
+	// Validate arguments
 	args := ctx.Args
 	if len(args) == 0 {
 		return fmt.Errorf("missing command to execute on host")
 	}
 
 	// Extract command
-	command := args[0]
-	index := slices.Index(args, command)
-	args = append(args[:index], args[index+1:]...)
+	command := ""
+	for _, arg := range args {
+		if !strings.HasPrefix(arg, "--") {
+			command = arg
+			index := slices.Index(args, command)
+			args = append(args[:index], args[index+1:]...)
+		}
+	}
+
+	if command == "" {
+		return fmt.Errorf("missing command to execute on host")
+	}
 
 	// Extract --no-wait flag
 	noWaitFlag := "--no-wait"
@@ -39,7 +56,7 @@ func BridgeRequest(ctx *command.Context) error {
 	request.Wait = waitCmd
 
 	// Connect to LXG socket
-	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)
+	socketPath := fmt.Sprintf("/run/user/%s/lxg.bridge", ctx.UID)
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return fmt.Errorf("connect to host error: %w", err)

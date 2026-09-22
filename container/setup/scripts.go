@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/mateussouzaweb/lxg/command"
+	"github.com/mateussouzaweb/lxg/container/env"
 )
 
 //go:embed scripts/*.sh
@@ -15,12 +16,18 @@ var scriptsFS embed.FS
 // InstallScripts on container
 func InstallScripts(ctx *command.Context) error {
 
+	// At least the init script should run
 	list := map[string]string{
-		"/usr/local/bin/gio":       "scripts/gio.sh",
-		"/usr/local/bin/xdg-open":  "scripts/xdg-open.sh",
 		"/etc/profile.d/99-lxg.sh": "scripts/init.sh",
 	}
 
+	// Include GIO and XDG-Open wrappers on integrated and privileged containers
+	if env.IsIntegrated() || env.IsPrivileged() {
+		list["/usr/local/bin/gio"] = "scripts/gio.sh"
+		list["/usr/local/bin/xdg-open"] = "scripts/xdg-open.sh"
+	}
+
+	// Process list of scripts to install
 	for destination, source := range list {
 
 		content, err := scriptsFS.ReadFile(source)

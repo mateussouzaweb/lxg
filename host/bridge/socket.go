@@ -12,10 +12,11 @@ import (
 )
 
 // Init socket listener to receive communication
+// Socket must run regardless of container type
 func InitSocket(ctx *command.Context, cancel context.Context) error {
 
 	// Path to LXG socket
-	socketPath := fmt.Sprintf("/run/user/%s/lxg.sock", ctx.UID)
+	socketPath := fmt.Sprintf("/run/user/%s/lxg.bridge", ctx.UID)
 
 	// Remove old socket if exists
 	err := os.Remove(socketPath)

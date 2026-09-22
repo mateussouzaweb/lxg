@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/container"
 	"github.com/mateussouzaweb/lxg/container/dbus"
+	"github.com/mateussouzaweb/lxg/container/env"
 	"github.com/mateussouzaweb/lxg/help"
 	"github.com/mateussouzaweb/lxg/host"
 	"github.com/mateussouzaweb/lxg/host/lxc"
@@ -28,11 +30,7 @@ func handle(args []string) error {
 
 	// Check if command was called from host or container
 	// Need to block execution based on context
-	isContainer, err := container.IsContainer()
-	if err != nil {
-		return err
-	}
-
+	isContainer := env.IsContainer()
 	hostOnly := []string{"listen", "setup", "start", "stop", "run"}
 	containerOnly := []string{"container"}
 
@@ -55,8 +53,12 @@ func handle(args []string) error {
 		// Extract container name
 		container := "ubuntu"
 		if len(args) > 0 {
-			container = args[0]
-			args = extract(args, container)
+			for _, arg := range args {
+				if !strings.HasPrefix(arg, "--") {
+					container = arg
+					args = extract(args, container)
+				}
+			}
 		}
 
 		// Create context
@@ -70,6 +72,8 @@ func handle(args []string) error {
 			return lxc.StartContainer(ctx)
 		case "stop":
 			return lxc.StopContainer(ctx)
+		case "restart":
+			return lxc.RestartContainer(ctx)
 		case "run":
 			return lxc.RunCommand(ctx)
 		}

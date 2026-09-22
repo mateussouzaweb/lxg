@@ -107,7 +107,7 @@ func AuthenticateUpstream(conn *net.UnixConn) error {
 		return fmt.Errorf("read negotiate response error: %w", err)
 	}
 
-	// Some older dbus-daemon versions may not agree
+	// Some older D-Bus daemon versions may not agree
 	// non-fatal, FD passing will simply not work
 	// The router continues without FD forwarding on this upstream if not agreed
 	// Send BEGIN

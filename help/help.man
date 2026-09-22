@@ -4,7 +4,7 @@ Usage:
 
   lxg help / --help / -h
   lxg listen [ARGS...]
-  lxg setup [CONTAINER] [ARGS...]
+  lxg setup [--integrated|--isolated|--privileged] [CONTAINER] [ARGS...] 
   lxg start [CONTAINER] [ARGS...]
   lxg stop [CONTAINER] [ARGS...]
   lxg run [CONTAINER] [ARGS...]
@@ -12,7 +12,7 @@ Usage:
   lxg container setup [ARGS...]
   lxg container init [ARGS...]
   lxg container router [ARGS...]
-  lxg container request [COMMAND] [ARGS...]
+  lxg container request [--no-wait] [COMMAND] [ARGS...]
 
 Commands:
 
@@ -24,6 +24,7 @@ Host Commands:
   setup      Configure LXG support on host and container
   start      Start container from host
   stop       Stop container from host
+  restart    Restart container from host
   run        Run command on container from host
 
 Container Commands:

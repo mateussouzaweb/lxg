@@ -8,31 +8,33 @@ In short, LXG provides desktop integration for your LXC containers.
 
 ## Project Status
 
-This project works, but still are in the early stages of development and will present bugs or unexpected behaviors. My ultimate goal is to have two types of container setup:
+This project works, but still are in the early stages of development and will present bugs or unexpected behaviors. My ultimate goal is to have the following types of container setup:
 
-- **Isolated containers:** these are most isolated containers, sharing only few key services (GPU, audio and display). Designed for untrusted applications at the cost of no desktop integration for things like notifications, screen sharing and home folder access. In this mode, you will need to run a browser inside the container to open links with `xdg-open` from IDE that is also installed on the container for example.
+- **Isolated containers:** these are the most isolated containers, sharing only key services: GPU, audio and display. Designed for untrusted applications at the cost of no desktop integration for things like notifications, screen sharing and home folder access. In this mode, you will need to install and run a browser inside the container to open links with `xdg-open` for example.
 
-- **Integrated containers:** provide access to the full desktop of your host, including everything that is possible. This is the closest to `distrobox` experience model.
+- **Integrated containers:** containers with more deeper sharing, including GPU, audio, display and desktop integration (D-Bus) for things like notifications, screen sharing and home folder access (home folder in secondary location, since host and container users are explicitly not the same). In this mode, you can open links with `xdg-open` in the container and they will be opened in your host default browser for example.
+
+- **Privileged containers:** provide access to the full desktop of your host, including everything that is possible such as home folder and even the root folder. This is the closest to `distrobox` experience model, but requires that both host and container have the same username.
 
 See the table below for a more specific overview:
 
--- | Isolated | Integrated
---- | --- | ---
-Privileged | no | yes
-GPU | shared | shared
-Wayland | shared | shared
-X11 | shared | shared
-Pipewire | shared | shared
-Pulse | shared | shared
-Network | isolated | shared
-IPC | isolated | shared
-PID | isolated | shared
-D-BUS | isolated | shared
-UID | must match | must match
-User | isolated | shared - must match
-`$HOME` | isolated | shared - must match
-Runtime | partially isolated | shared
-Bridge | available | not necessary
+-- | Isolated | Integrated | Privileged
+--- | --- | --- | ---
+Privileged | no | no | yes
+GPU | shared | shared | shared
+Wayland | shared | shared | shared
+X11 | shared | shared | shared
+Pipewire | shared | shared | shared
+Pulse | shared | shared | shared
+Network | isolated | isolated | shared
+IPC | isolated | isolated | shared
+PID | isolated | isolated | mostly shared
+D-Bus | isolated | integrated | shared
+UID | must match | must match | must match
+User | isolated | integrated | shared - must match
+`$HOME` | isolated | integrated | shared - must match
+Runtime | isolated | partially isolated | shared
+Bridge | unavailable | integrated | not necessary
 
 ## Building
 
@@ -120,6 +122,14 @@ NOTE: Package names below are for Debian/Ubuntu based containers and names may v
 - Secrets: `libsecret-1-0 libsecret-tools`
 - Fonts: `fontconfig fonts-liberation fonts-dejavu fonts-ubuntu fonts-noto fonts-roboto fonts-open-sans fonts-firacode`
 - Others: `zenity`
+
+When using fully isolated containers, the following packages are also required:
+
+- X11: `dbus-x11`
+- XDG / Portals:`xdg-desktop-portal xdg-desktop-portal-gtk`
+- XDG / KDE: `xdg-desktop-portal-kde`
+- XDG / GNOME: `xdg-desktop-portal-gnome`
+- Secrets: `gnome-keyring`
 
 When installing Pipewire, is also important to stop the service inside the container to avoid conflict with host:
 

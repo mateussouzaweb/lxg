@@ -28,16 +28,6 @@ func InitEnvironment(ctx *command.Context) error {
 		return fmt.Sprintf("%s%s", userRuntime, path)
 	}
 
-	list := map[string]string{
-		hostPath("/pulse/native"): userPath("/pulse/native"),
-		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
-		hostPath("/wayland-0"):    userPath("/wayland-0"),
-		hostPath("/lxg.host.bus"): userPath("/lxg.host.bus"),
-		hostPath("/lxg.sock"):     userPath("/lxg.sock"),
-		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
-		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
-	}
-
 	// Ensure runtime directory exists
 	err := os.MkdirAll(userPath(""), 0700)
 	if err != nil {
@@ -98,10 +88,31 @@ func InitEnvironment(ctx *command.Context) error {
 		return nil
 	}
 
+	// List of possible symlink points
+	// Final symlink list vary based on container type
+	// When host path not available, symlink is skipped
+	list := map[string]string{
+		hostPath("/pulse/native"): userPath("/pulse/native"),
+		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
+		hostPath("/wayland-0"):    userPath("/wayland-0"),
+		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
+		hostPath("/lxg.bridge"):   userPath("/lxg.bridge"),
+		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
+		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
+	}
+
 	// Symlink host runtime sockets
 	for source, destination := range list {
 
-		// Check if symlink already is pointing to host socket
+		// Skip when source file does not exist
+		_, err := os.Stat(source)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		} else if err != nil && errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+
+		// Check if destination symlink already is pointing to source
 		match, err := symlinkMatch(source, destination)
 		if err != nil {
 			return err
@@ -109,64 +120,77 @@ func InitEnvironment(ctx *command.Context) error {
 			continue
 		}
 
-		// Remove current entry if necessary
+		// Remove current destination entry if necessary
 		err = removeExisting(destination)
 		if err != nil {
 			return err
 		}
 
-		// Make symlink to host socket
+		// Make symlink to source
 		err = os.Symlink(source, destination)
 		if err != nil {
 			return err
 		}
+
+	}
+
+	// Define environment variables
+	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
+	variables := map[string]string{
+		"DISPLAY":         ":0",
+		"WAYLAND_DISPLAY": "wayland-0",
+		"PULSE_SERVER":    pulseServer,
 	}
 
 	// Find Mutter XWayland authentication file
-	globPattern := filepath.Join(hostRuntime, ".mutter-Xwaylandauth.*")
-	matches, err := filepath.Glob(globPattern)
+	mutterXAuthGlobPattern := filepath.Join(hostRuntime, ".mutter-Xwaylandauth.*")
+	mutterXAuthMatches, err := filepath.Glob(mutterXAuthGlobPattern)
 	if err != nil {
 		return err
-	}
-
-	mutterXAuth := ""
-	if len(matches) > 0 {
-		mutterXAuth = matches[0]
-	}
-
-	// Set dBus address to router if present, fallback to native bus or host bus
-	dBusAddress := ""
-	if _, err := os.Stat(userPath("/lxg.router.bus")); err == nil {
-		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/lxg.router.bus"))
-	} else if _, err := os.Stat(userPath("/bus")); err == nil {
-		dBusAddress = fmt.Sprintf("unix:path=%s", userPath("/bus"))
-	} else if _, err := os.Stat(hostPath("/lxg.host.bus")); err == nil {
-		dBusAddress = fmt.Sprintf("unix:path=%s", hostPath("/lxg.host.bus"))
-	}
-
-	// Export environment variables
-	xdgDesktop := "GNOME"
-	xdgMenuPrefix := "gnome-"
-	xdgRuntimeDir := userPath("")
-	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
-	variables := map[string]string{
-		"LXG_CONTAINER":       "1",
-		"DISPLAY":             ":0",
-		"WAYLAND_DISPLAY":     "wayland-0",
-		"XDG_SESSION_TYPE":    "wayland",
-		"XDG_RUNTIME_DIR":     xdgRuntimeDir,
-		"XDG_CURRENT_DESKTOP": xdgDesktop,
-		"XDG_MENU_PREFIX":     xdgMenuPrefix,
-		"PULSE_SERVER":        pulseServer,
-	}
-
-	if mutterXAuth != "" {
+	} else if len(mutterXAuthMatches) > 0 {
+		mutterXAuth := mutterXAuthMatches[0]
 		variables["XAUTHORITY"] = mutterXAuth
 	}
-	if dBusAddress != "" {
+
+	// Set D-Bus address to first available address
+	// Priority: router, proxy, native bus
+	dBusAddress := ""
+	dBusSources := []string{
+		userPath("/lxg.router"),
+		userPath("/lxg.bus"),
+		userPath("/bus"),
+	}
+
+	for _, dBusPath := range dBusSources {
+		_, err := os.Stat(dBusPath)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		} else if err != nil && errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+
+		dBusAddress = fmt.Sprintf("unix:path=%s", dBusPath)
+		break
+	}
+
+	// Isolated containers should not enforce the D-Bus address
+	if !IsIsolated() && dBusAddress != "" {
 		variables["DBUS_SESSION_BUS_ADDRESS"] = dBusAddress
 	}
 
+	// Append XDG on integrated and privileged containers
+	if IsIntegrated() || IsPrivileged() {
+		xdgDesktop := "GNOME"
+		xdgMenuPrefix := "gnome-"
+		xdgRuntimeDir := userPath("")
+
+		variables["XDG_SESSION_TYPE"] = "wayland"
+		variables["XDG_RUNTIME_DIR"] = xdgRuntimeDir
+		variables["XDG_CURRENT_DESKTOP"] = xdgDesktop
+		variables["XDG_MENU_PREFIX"] = xdgMenuPrefix
+	}
+
+	// Export environment variables
 	// Use export statements for the shell to evaluate
 	for key, value := range variables {
 		fmt.Printf("export %s=%q\n", key, value)

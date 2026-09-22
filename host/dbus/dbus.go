@@ -13,18 +13,19 @@ import (
 	"github.com/mateussouzaweb/lxg/command"
 )
 
-// Init DBUS proxy listener to receive communication
+// Init D-Bus proxy listener to receive communication
+// Proxy must run regardless of container type
 func InitDBus(ctx *command.Context, cancel context.Context) error {
 
-	// Path to LXG DBUS host proxy
-	proxyPath := fmt.Sprintf("/run/user/%s/lxg.host.bus", ctx.UID)
+	// Path to LXG D-Bus host proxy
+	proxyPath := fmt.Sprintf("/run/user/%s/lxg.bus", ctx.UID)
 
-	// Only run if detect DBUS session address
+	// Only run if detect D-Bus session address
 	sessionAddress := os.Getenv("DBUS_SESSION_BUS_ADDRESS")
 	if sessionAddress == "" {
 		fmt.Printf("WARNING!\n")
-		fmt.Printf("Looks like you are not running any DBUS session..\n")
-		fmt.Printf("Please make sure to run a interactive DBUS session first.\n")
+		fmt.Printf("Looks like you are not running any D-Bus session..\n")
+		fmt.Printf("Please make sure to run a interactive D-Bus session first.\n")
 		return nil
 	}
 
@@ -51,7 +52,7 @@ func InitDBus(ctx *command.Context, cancel context.Context) error {
 
 	defer os.Remove(proxyPath)
 
-	// Start DBUS proxy without filtering
+	// Start D-Bus proxy without filtering
 	args := []string{
 		sessionAddress,
 		proxyPath,
@@ -69,7 +70,7 @@ func InitDBus(ctx *command.Context, cancel context.Context) error {
 		return fmt.Errorf("dbus proxy error: %w", err)
 	}
 
-	fmt.Printf("Bridge DBus proxy listening on %s\n", proxyPath)
+	fmt.Printf("DBus proxy listening on %s\n", proxyPath)
 
 	err = cmd.Wait()
 	if err != nil && cancel.Err() == nil {

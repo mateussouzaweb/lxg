@@ -13,11 +13,16 @@ import (
 	"github.com/mateussouzaweb/lxg/host/dbus"
 )
 
-// Init bridge services in parallel
+// Init host daemon services in parallel
 func Init(ctx *command.Context) error {
 
 	// Context cancelled when SIGINT or SIGTERM is received
-	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+
 	defer stop()
 
 	// Internal context to cancel all services if any fails
@@ -27,7 +32,7 @@ func Init(ctx *command.Context) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 2)
 
-	// Start DBus proxy in background
+	// Start D-Bus proxy in background
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -38,7 +43,7 @@ func Init(ctx *command.Context) error {
 		}
 	}()
 
-	// Start Socket listener in background
+	// Start bridge socket listener in background
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

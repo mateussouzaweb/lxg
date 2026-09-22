@@ -13,14 +13,13 @@ import (
 
 //go:embed profiles/*.yml
 var profileSpecFS embed.FS
-var profileName = "desktop"
 
 // SetupProfile on LXC installation
 func SetupProfile(ctx *command.Context) (bool, error) {
 
 	// Check if profile exists
 	// Exit code 1 means profile not exists
-	args := []string{"profile", "show", profileName}
+	args := []string{"profile", "show", ctx.Profile}
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 
@@ -34,7 +33,8 @@ func SetupProfile(ctx *command.Context) (bool, error) {
 	}
 
 	// Read profile specs
-	profileSpec, err := profileSpecFS.ReadFile("profiles/desktop.yml")
+	profilePath := fmt.Sprintf("profiles/%s.yml", ctx.Profile)
+	profileSpec, err := profileSpecFS.ReadFile(profilePath)
 	if err != nil {
 		return false, fmt.Errorf("profile read error: %w", err)
 	}
@@ -46,8 +46,15 @@ func SetupProfile(ctx *command.Context) (bool, error) {
 		[]byte(ctx.UID),
 	)
 
+	// Define user on profile
+	profileSpec = bytes.ReplaceAll(
+		profileSpec,
+		[]byte(":USER"),
+		[]byte(ctx.User),
+	)
+
 	// Create profile from specs
-	args = []string{"profile", "create", profileName}
+	args = []string{"profile", "create", ctx.Profile}
 	stdin := bytes.NewBuffer(profileSpec)
 	cmd = exec.Command("lxc", args...)
 	cmd.Stdin = stdin
@@ -66,7 +73,7 @@ func SetupProfile(ctx *command.Context) (bool, error) {
 func AttachProfile(ctx *command.Context) (bool, error) {
 
 	// Check if profile already is attached to instance
-	args := []string{"profile", "show", profileName}
+	args := []string{"profile", "show", ctx.Profile}
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 
@@ -80,7 +87,7 @@ func AttachProfile(ctx *command.Context) (bool, error) {
 	}
 
 	// Attach profile when not detected
-	args = []string{"profile", "add", ctx.Container, profileName}
+	args = []string{"profile", "add", ctx.Container, ctx.Profile}
 	cmd = exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 

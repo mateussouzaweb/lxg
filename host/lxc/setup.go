@@ -12,24 +12,24 @@ import (
 func Setup(ctx *command.Context) error {
 
 	// Setup profile on host
-	fmt.Printf("Configuring desktop profile...\n")
+	fmt.Printf("Configuring profile...\n")
 
 	created, err := SetupProfile(ctx)
 	if err != nil {
 		return fmt.Errorf("profile setup error: %w", err)
 	} else if created {
-		fmt.Printf("Desktop profile created.\n")
+		fmt.Printf("Profile created.\n")
 	}
 
 	// Attach profile to container
 	// When attached, stop container to reflect changes
-	fmt.Printf("Attaching desktop profile to container %s...\n", ctx.Container)
+	fmt.Printf("Attaching profile to container: %s -> %s...\n", ctx.Profile, ctx.Container)
 
 	attached, err := AttachProfile(ctx)
 	if err != nil {
 		return fmt.Errorf("profile attach error: %w", err)
 	} else if attached {
-		fmt.Printf("Desktop profile attached to container.\n")
+		fmt.Printf("Profile attached to container.\n")
 		fmt.Printf("Rebooting container to reflect...\n")
 		err = StopContainer(ctx)
 		if err != nil {

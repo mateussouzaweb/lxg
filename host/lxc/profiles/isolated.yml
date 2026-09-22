@@ -1,0 +1,31 @@
+name: isolated
+description: Isolated profile for GUI applications with LXG
+config:
+  environment.LXG_CONTAINER: 1
+  environment.LXG_ISOLATED: 1
+  boot.autostart: 'true'
+  raw.idmap: both :UID :UID
+devices:
+  gpu:
+    type: gpu
+  lxg-binary:
+    type: disk
+    source: /usr/local/bin/lxg
+    path: /usr/local/bin/lxg
+  wayland-socket:
+    type: disk
+    source: /run/user/:UID/wayland-0
+    path: /lxg/run/user/:UID/wayland-0
+  pipewire-socket:
+    type: disk
+    source: /run/user/:UID/pipewire-0
+    path: /lxg/run/user/:UID/pipewire-0
+  pulse-socket:
+    type: disk
+    source: /run/user/:UID/pulse/native
+    path: /lxg/run/user/:UID/pulse/native
+  x11-socket:
+    type: disk
+    source: /tmp/.X11-unix
+    path: /lxg/tmp/.X11-unix
+    required: 'false'

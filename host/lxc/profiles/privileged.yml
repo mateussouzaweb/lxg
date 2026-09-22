@@ -1,0 +1,36 @@
+name: privileged
+description: Privileged profile for GUI applications with LXG
+config:
+  environment.LXG_CONTAINER: 1
+  environment.LXG_PRIVILEGED: 1
+  boot.autostart: 'true'
+  security.privileged: 'true'
+  security.nesting: 'true'
+  raw.lxc: |
+    lxc.namespace.keep = net ipc
+    lxc.apparmor.profile = unconfined
+    lxc.selinux.context = unconfined_t
+devices:
+  gpu:
+    type: gpu
+  host-share:
+    type: disk
+    source: /
+    path: /host
+  home-share:
+    type: disk
+    source: /home/:USER
+    path: /home/:USER
+  lxg-binary:
+    type: disk
+    source: /usr/local/bin/lxg
+    path: /usr/local/bin/lxg
+  run-socket:
+    type: disk
+    source: /run/user/:UID
+    path: /lxg/run/user/:UID
+  x11-socket:
+    type: disk
+    source: /tmp/.X11-unix
+    path: /lxg/tmp/.X11-unix
+    required: 'false'

@@ -12,11 +12,19 @@ import (
 	"time"
 
 	"github.com/mateussouzaweb/lxg/command"
+	"github.com/mateussouzaweb/lxg/container/env"
 )
 
 // EnsureRouter checks if the D-Bus router is running and starts it if necessary
 func EnsureRouter(ctx *command.Context) error {
-	routerSocket := fmt.Sprintf("/run/user/%s/lxg.router.bus", ctx.UID)
+
+	// Don't enable D-Bus router on isolated and privileged containers
+	if env.IsIsolated() || env.IsPrivileged() {
+		return nil
+	}
+
+	// Path to LXG D-Bus router service
+	routerSocket := fmt.Sprintf("/run/user/%s/lxg.router", ctx.UID)
 
 	// Check if router is already active and responding
 	conn, err := net.DialTimeout("unix", routerSocket, 200*time.Millisecond)
