@@ -41,7 +41,7 @@ func LinkAuth(ctx *command.Context, cancel context.Context) error {
 		return fmt.Errorf("read x11 auth error: %w", err)
 	}
 
-	err = os.WriteFile(authLink, content, 0700)
+	err = os.WriteFile(authLink, content, 0600)
 	if err != nil {
 		return fmt.Errorf("link x11 auth error: %w", err)
 	}
