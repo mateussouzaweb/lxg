@@ -4,15 +4,48 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/mateussouzaweb/lxg/command"
 )
+
+func routerPaths(uid string) (socket string, pidFile string) {
+	socket = fmt.Sprintf("/run/user/%s/lxg.router", uid)
+	pidFile = socket + ".pid"
+	return socket, pidFile
+}
+
+func pidAlive(pid int) bool {
+	err := syscall.Kill(pid, 0)
+	return err == nil
+}
+
+func readPidFile(path string) (int, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil || pid <= 0 {
+		return 0, fmt.Errorf("invalid pid file")
+	}
+	return pid, nil
+}
+
+func routerRunning(socket string, pidFile string) bool {
+	pid, err := readPidFile(pidFile)
+	if err != nil || !pidAlive(pid) {
+		return false
+	}
+	_, err = os.Stat(socket)
+	return err == nil
+}
 
 // EnsureRouter checks if the D-Bus router is running and starts it if necessary
 func EnsureRouter(ctx *command.Context) error {
@@ -27,29 +60,22 @@ func EnsureRouter(ctx *command.Context) error {
 		return nil
 	}
 
-	// Path to LXG D-Bus router service
-	routerSocket := fmt.Sprintf("/run/user/%s/lxg.router", ctx.UID)
-
-	// Check if router is already active and responding
-	conn, err := net.DialTimeout("unix", routerSocket, 200*time.Millisecond)
-	if err == nil {
-		conn.Close()
+	routerSocket, pidFile := routerPaths(ctx.UID)
+	if routerRunning(routerSocket, pidFile) {
 		return nil
 	}
 
-	// Router is not responding, remove any stale socket
 	err = os.Remove(routerSocket)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove dbus socket error: %w", err)
 	}
+	_ = os.Remove(pidFile)
 
-	// Find lxg binary
 	binaryPath, err := os.Executable()
 	if err != nil {
 		binaryPath = "/usr/local/bin/lxg"
 	}
 
-	// Spawn router as a detached background daemon
 	cmd := exec.Command(binaryPath, "container", "router")
 	cmd.Stdin = nil
 	cmd.Stdout = nil
@@ -63,23 +89,28 @@ func EnsureRouter(ctx *command.Context) error {
 		return fmt.Errorf("start dbus router error: %w", err)
 	}
 
-	// Release process resources so it runs independently
+	waitErr := make(chan error, 1)
 	go func() {
-		_ = cmd.Wait()
+		waitErr <- cmd.Wait()
 	}()
 
-	// Wait up to 2 seconds for router socket to become ready
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		time.Sleep(50 * time.Millisecond)
-		conn, err := net.DialTimeout("unix", routerSocket, 100*time.Millisecond)
-		if err == nil {
-			conn.Close()
+		select {
+		case err := <-waitErr:
+			if err != nil {
+				return fmt.Errorf("dbus router exited: %w", err)
+			}
+			return fmt.Errorf("dbus router exited before becoming ready")
+		default:
+		}
+		if routerRunning(routerSocket, pidFile) {
 			return nil
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
 
-	return nil
+	return fmt.Errorf("dbus router did not become ready")
 }
 
 // StartRouter starts the D-Bus router in foreground

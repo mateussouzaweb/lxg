@@ -5,14 +5,21 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/mateussouzaweb/lxg/command"
+)
+
+const (
+	hostSwallow byte = iota
+	hostForward
 )
 
 // Router manages routing between container clients, HostSocket, and ContainerSocket
@@ -35,6 +42,11 @@ func NewRouter(ctx *command.Context) *Router {
 		HostSocket:      fmt.Sprintf("/run/user/%s/lxg.bus", uid),
 		ContainerSocket: fmt.Sprintf("/run/user/%s/bus", uid),
 	}
+}
+
+// PidFile is the path of the daemon pid file next to the router socket
+func (r *Router) PidFile() string {
+	return r.RouterSocket + ".pid"
 }
 
 // NextSerial generates an incrementing serial number
@@ -65,6 +77,12 @@ func (r *Router) Start(ctx context.Context) error {
 	r.listener = listener
 	defer listener.Close()
 	defer os.Remove(r.RouterSocket)
+
+	err = os.WriteFile(r.PidFile(), []byte(fmt.Sprintf("%d\n", os.Getpid())), 0600)
+	if err != nil {
+		return fmt.Errorf("write router pid file error: %w", err)
+	}
+	defer os.Remove(r.PidFile())
 
 	// Set socket permissions
 	err = os.Chmod(r.RouterSocket, 0600)
@@ -103,14 +121,30 @@ func (r *Router) Start(ctx context.Context) error {
 	return nil
 }
 
+type hostPending struct {
+	kind   byte
+	member string
+}
+
+type mergeState struct {
+	member  string
+	hostMsg *Message
+	contMsg *Message
+}
+
 // ClientSession manages a single client connection and its upstream links
 type ClientSession struct {
-	router        *Router
-	clientConn    *net.UnixConn
-	hostConn      *net.UnixConn
-	containerConn *net.UnixConn
-	clientWriteMu sync.Mutex
-	closed        atomic.Bool
+	router          *Router
+	clientConn      *net.UnixConn
+	hostConn        *net.UnixConn
+	containerConn   *net.UnixConn
+	clientWriteMu   sync.Mutex
+	mu              sync.Mutex
+	closed          atomic.Bool
+	hostPending     map[uint32]hostPending
+	merges          map[uint32]*mergeState
+	hostUniqueNames map[string]struct{}
+	hostUniqueName  string
 }
 
 func (r *Router) handleClient(clientConn *net.UnixConn) {
@@ -118,22 +152,43 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 	dateTime := time.Now()
 	fmt.Printf("Received new request: %s\n", dateTime.Format(time.RFC3339))
 
-	// Initiate session
 	session := &ClientSession{
-		router:     r,
-		clientConn: clientConn,
+		router:          r,
+		clientConn:      clientConn,
+		hostPending:     make(map[uint32]hostPending),
+		merges:          make(map[uint32]*mergeState),
+		hostUniqueNames: make(map[string]struct{}),
 	}
 
-	defer session.Close()
+	var (
+		clientReader    *MessageReader
+		containerReader *MessageReader
+		hostReader      *MessageReader
+		wg              sync.WaitGroup
+	)
 
-	// Authenticate client
+	defer func() {
+		session.Close()
+		wg.Wait()
+		if clientReader != nil {
+			clientReader.Close()
+		}
+		if containerReader != nil {
+			containerReader.Close()
+		}
+		if hostReader != nil {
+			hostReader.Close()
+		}
+	}()
+
 	extraBytes, err := AuthenticateClient(clientConn)
 	if err != nil {
-		fmt.Printf("Client SASL auth failed: %s\n", err)
+		if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+			fmt.Printf("Client SASL auth failed: %s\n", err)
+		}
 		return
 	}
 
-	// Connect to ContainerSocket (native container bus)
 	cConn, err := net.Dial("unix", r.ContainerSocket)
 	if err != nil {
 		fmt.Printf("Dial ContainerSocket (%s) error: %s\n", r.ContainerSocket, err)
@@ -147,7 +202,6 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 		return
 	}
 
-	// Connect to HostSocket (host proxy) if available
 	hConn, err := net.Dial("unix", r.HostSocket)
 	if err == nil {
 		session.hostConn = hConn.(*net.UnixConn)
@@ -158,27 +212,16 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 			session.hostConn = nil
 		}
 	} else {
-		// Non-fatal: container apps will still work locally
 		session.hostConn = nil
 	}
 
-	// Set up message readers
-	clientReader := NewMessageReader(clientConn)
+	clientReader = NewMessageReader(clientConn)
 	if len(extraBytes) > 0 {
 		clientReader.buf = append(clientReader.buf, extraBytes...)
 	}
 
-	containerReader := NewMessageReader(session.containerConn)
-	hostReader := &MessageReader{}
+	containerReader = NewMessageReader(session.containerConn)
 
-	if session.hostConn != nil {
-		hostReader = NewMessageReader(session.hostConn)
-	}
-
-	// Start upstream forwarders to client
-	var wg sync.WaitGroup
-
-	// Container -> Client forwarder
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -188,16 +231,16 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 			if err != nil {
 				break
 			}
-			err = session.SendToClient(msg)
-			msg.CloseFDs()
+			err = session.handleUpstream(TargetContainer, msg)
 			if err != nil {
+				msg.CloseFDs()
 				break
 			}
 		}
 	}()
 
-	// Host -> Client forwarder
-	if hostReader != nil {
+	if session.hostConn != nil {
+		hostReader = NewMessageReader(session.hostConn)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -207,16 +250,15 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 				if err != nil {
 					break
 				}
-				err = session.SendToClient(msg)
-				msg.CloseFDs()
+				err = session.handleUpstream(TargetHost, msg)
 				if err != nil {
+					msg.CloseFDs()
 					break
 				}
 			}
 		}()
 	}
 
-	// Client -> Upstream dispatcher loop
 	for {
 		msg, err := clientReader.ReadMessage()
 		if err != nil {
@@ -229,9 +271,6 @@ func (r *Router) handleClient(clientConn *net.UnixConn) {
 			break
 		}
 	}
-
-	session.Close()
-	wg.Wait()
 }
 
 // SendToClient writes a message safely to the client connection
@@ -241,22 +280,79 @@ func (s *ClientSession) SendToClient(msg *Message) error {
 	return WriteMessage(s.clientConn, msg)
 }
 
+func (s *ClientSession) noteHostPending(serial uint32, kind byte, member string) {
+	s.mu.Lock()
+	s.hostPending[serial] = hostPending{kind: kind, member: member}
+	s.mu.Unlock()
+}
+
+func (s *ClientSession) rememberHostUnique(name string) {
+	if name == "" || !strings.HasPrefix(name, ":") {
+		return
+	}
+	s.mu.Lock()
+	s.hostUniqueNames[name] = struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *ClientSession) routeDestination(destination string) Target {
+	if destination == "" {
+		return TargetContainer
+	}
+	if RouteDestination(destination) == TargetHost {
+		return TargetHost
+	}
+	if RouteOwnership(destination) == TargetHost {
+		return TargetHost
+	}
+	s.mu.Lock()
+	_, known := s.hostUniqueNames[destination]
+	s.mu.Unlock()
+	if known {
+		return TargetHost
+	}
+	return TargetContainer
+}
+
+func (s *ClientSession) writeHostCopy(msg *Message) error {
+	dupFDs, _ := CopyFDs(msg.FDs)
+	rawCopy := make([]byte, len(msg.Raw))
+	copy(rawCopy, msg.Raw)
+	hostMsg := &Message{Raw: rawCopy, FDs: dupFDs}
+	err := WriteMessage(s.hostConn, hostMsg)
+	hostMsg.CloseFDs()
+	return err
+}
+
+func (s *ClientSession) sendToHost(msg *Message, kind byte) error {
+	if msg.Type == TypeMethodCall {
+		s.noteHostPending(msg.Serial, kind, msg.Member)
+	}
+	err := WriteMessage(s.hostConn, msg)
+	if err != nil && msg.Type == TypeMethodCall {
+		s.mu.Lock()
+		delete(s.hostPending, msg.Serial)
+		s.mu.Unlock()
+	}
+	return err
+}
+
 // DispatchClientMessage routes an incoming client message to the appropriate upstream
 func (s *ClientSession) DispatchClientMessage(msg *Message) error {
+	if msg.Type == TypeSignal {
+		return s.dispatchSignal(msg)
+	}
 
-	// Special handling for bus management calls on org.freedesktop.DBus
-	if msg.Destination == "org.freedesktop.DBus" || msg.Destination == "" {
+	if msg.Destination == "org.freedesktop.DBus" {
 		return s.handleDBusManagement(msg)
 	}
 
-	// Normal method calls: check route target
-	target := RouteDestination(msg.Destination)
+	target := s.routeDestination(msg.Destination)
 	if target == TargetHost {
 		if s.hostConn != nil {
-			return WriteMessage(s.hostConn, msg)
+			return s.sendToHost(msg, hostForward)
 		}
 
-		// Host proxy is not available: return error
 		errMsg := NewErrorMessage(msg, "org.freedesktop.DBus.Error.ServiceUnknown",
 			fmt.Sprintf("The name %s is a host service but host proxy is unavailable", msg.Destination),
 			s.router.NextSerial())
@@ -264,62 +360,244 @@ func (s *ClientSession) DispatchClientMessage(msg *Message) error {
 		return s.SendToClient(errMsg)
 	}
 
-	// Default fallback: ContainerSocket
 	return WriteMessage(s.containerConn, msg)
 }
 
-// handleDBusManagement handles calls addressed to org.freedesktop.DBus
+func (s *ClientSession) dispatchSignal(msg *Message) error {
+	if msg.Destination != "" {
+		if msg.Destination == "org.freedesktop.DBus" {
+			return WriteMessage(s.containerConn, msg)
+		}
+		if s.routeDestination(msg.Destination) == TargetHost && s.hostConn != nil {
+			return s.sendToHost(msg, hostForward)
+		}
+		return WriteMessage(s.containerConn, msg)
+	}
+
+	// Broadcast: deliver on the container bus, and also on the host bus so
+	// well-known names owned there (e.g. MPRIS) still emit to host listeners.
+	if s.hostConn != nil && msg.Interface != "org.freedesktop.DBus" {
+		_ = s.writeHostCopy(msg)
+	}
+	return WriteMessage(s.containerConn, msg)
+}
+
 func (s *ClientSession) handleDBusManagement(msg *Message) error {
 	switch msg.Member {
-	case "AddMatch", "RemoveMatch":
-		// Check if match rule targets host
-		rule := extractFirstStringArg(msg)
-		isHostSignal := MatchSignalRuleHost(rule)
-
-		if isHostSignal && s.hostConn != nil {
-			// Duplicate FDs and raw bytes for host so there are no shared references
-			dupFDs, _ := CopyFDs(msg.FDs)
-			rawCopy := make([]byte, len(msg.Raw))
-			copy(rawCopy, msg.Raw)
-			hostMsg := &Message{Raw: rawCopy, FDs: dupFDs}
-			_ = WriteMessage(s.hostConn, hostMsg)
+	case "Hello":
+		if s.hostConn != nil {
+			s.noteHostPending(msg.Serial, hostSwallow, msg.Member)
+			if err := s.writeHostCopy(msg); err != nil {
+				s.mu.Lock()
+				delete(s.hostPending, msg.Serial)
+				s.mu.Unlock()
+			}
 		}
+		return WriteMessage(s.containerConn, msg)
 
-		// Also register on container (container will send the reply back to client)
+	case "AddMatch", "RemoveMatch":
+		rule := extractFirstStringArg(msg)
+		if MatchSignalRuleHost(rule) && s.hostConn != nil {
+			s.noteHostPending(msg.Serial, hostSwallow, msg.Member)
+			if err := s.writeHostCopy(msg); err != nil {
+				s.mu.Lock()
+				delete(s.hostPending, msg.Serial)
+				s.mu.Unlock()
+			}
+		}
 		return WriteMessage(s.containerConn, msg)
 
 	case "RequestName", "ReleaseName":
 		name := extractFirstStringArg(msg)
-		target := RouteOwnership(name)
-
-		if target == TargetHost && s.hostConn != nil {
-			return WriteMessage(s.hostConn, msg)
+		if RouteOwnership(name) == TargetHost && s.hostConn != nil {
+			return s.sendToHost(msg, hostForward)
 		}
 		return WriteMessage(s.containerConn, msg)
 
-	case "GetNameOwner":
+	case "GetNameOwner", "NameHasOwner", "StartServiceByName":
 		name := extractFirstStringArg(msg)
-		target := RouteDestination(name)
+		if s.routeDestination(name) == TargetHost && s.hostConn != nil {
+			return s.sendToHost(msg, hostForward)
+		}
+		return WriteMessage(s.containerConn, msg)
 
-		if target == TargetHost && s.hostConn != nil {
-			return WriteMessage(s.hostConn, msg)
+	case "ListNames", "ListActivatableNames":
+		if s.hostConn != nil {
+			s.mu.Lock()
+			s.merges[msg.Serial] = &mergeState{member: msg.Member}
+			s.mu.Unlock()
+			if err := s.writeHostCopy(msg); err != nil {
+				s.mu.Lock()
+				delete(s.merges, msg.Serial)
+				s.mu.Unlock()
+				return WriteMessage(s.containerConn, msg)
+			}
+		}
+		return WriteMessage(s.containerConn, msg)
+
+	case "GetConnectionUnixProcessID", "GetConnectionUnixUser",
+		"GetConnectionCredentials", "GetAdtAuditSessionData",
+		"GetConnectionSELinuxSecurityContext":
+		name := extractFirstStringArg(msg)
+		if s.routeDestination(name) == TargetHost && s.hostConn != nil {
+			return s.sendToHost(msg, hostForward)
 		}
 		return WriteMessage(s.containerConn, msg)
 
 	default:
-		// Send Hello and other methods to ContainerSocket.
-		// When Hello is sent, container bus returns canonical unique name (:1.x).
-		// Also register on HostSocket so the host proxy tracks this connection.
-		if msg.Member == "Hello" && s.hostConn != nil {
-			dupFDs, _ := CopyFDs(msg.FDs)
-			rawCopy := make([]byte, len(msg.Raw))
-			copy(rawCopy, msg.Raw)
-			hostMsg := &Message{Raw: rawCopy, FDs: dupFDs}
-			_ = WriteMessage(s.hostConn, hostMsg)
-		}
-
 		return WriteMessage(s.containerConn, msg)
 	}
+}
+
+func (s *ClientSession) handleUpstream(from Target, msg *Message) error {
+	if msg.Type == TypeMethodReturn || msg.Type == TypeError {
+		if from == TargetContainer {
+			if s.takeMerge(from, msg) {
+				return nil
+			}
+			err := s.SendToClient(msg)
+			msg.CloseFDs()
+			return err
+		}
+
+		// Host replies: only deliver those we asked for.
+		if s.takeMerge(from, msg) {
+			return nil
+		}
+
+		s.mu.Lock()
+		pending, ok := s.hostPending[msg.ReplySerial]
+		if ok {
+			delete(s.hostPending, msg.ReplySerial)
+		}
+		s.mu.Unlock()
+
+		if !ok {
+			msg.CloseFDs()
+			return nil
+		}
+
+		if pending.kind == hostSwallow {
+			if pending.member == "Hello" && msg.Type == TypeMethodReturn {
+				name := extractFirstStringArg(msg)
+				s.mu.Lock()
+				s.hostUniqueName = name
+				s.mu.Unlock()
+				s.rememberHostUnique(name)
+			}
+			msg.CloseFDs()
+			return nil
+		}
+
+		if pending.member == "GetNameOwner" && msg.Type == TypeMethodReturn {
+			s.rememberHostUnique(extractFirstStringArg(msg))
+		}
+
+		err := s.SendToClient(msg)
+		msg.CloseFDs()
+		return err
+	}
+
+	if from == TargetHost && !s.shouldForwardHostSignal(msg) {
+		msg.CloseFDs()
+		return nil
+	}
+
+	err := s.SendToClient(msg)
+	msg.CloseFDs()
+	return err
+}
+
+func (s *ClientSession) takeMerge(from Target, msg *Message) bool {
+	s.mu.Lock()
+	state, ok := s.merges[msg.ReplySerial]
+	if !ok {
+		s.mu.Unlock()
+		return false
+	}
+	if from == TargetHost {
+		state.hostMsg = msg
+	} else {
+		state.contMsg = msg
+	}
+	ready := state.hostMsg != nil && state.contMsg != nil
+	if ready {
+		delete(s.merges, msg.ReplySerial)
+	}
+	s.mu.Unlock()
+
+	if !ready {
+		return true
+	}
+
+	merged := mergeNameListReplies(state.contMsg, state.hostMsg)
+	state.hostMsg.CloseFDs()
+	state.contMsg.CloseFDs()
+	_ = s.SendToClient(merged)
+	return true
+}
+
+func (s *ClientSession) shouldForwardHostSignal(msg *Message) bool {
+	if msg.Type != TypeSignal {
+		return false
+	}
+
+	if msg.Sender == "org.freedesktop.DBus" || msg.Interface == "org.freedesktop.DBus" {
+		name := extractFirstStringArg(msg)
+		if msg.Member != "NameOwnerChanged" && msg.Member != "NameAcquired" && msg.Member != "NameLost" {
+			return false
+		}
+		if RouteDestination(name) != TargetHost && RouteOwnership(name) != TargetHost {
+			return false
+		}
+		if msg.Member == "NameOwnerChanged" {
+			stringsInBody := extractBodyStrings(msg)
+			if len(stringsInBody) >= 3 {
+				s.rememberHostUnique(stringsInBody[2])
+			}
+		}
+		return true
+	}
+
+	return true
+}
+
+func mergeNameListReplies(containerMsg, hostMsg *Message) *Message {
+	base := containerMsg
+	if containerMsg.Type != TypeMethodReturn {
+		if hostMsg.Type == TypeMethodReturn {
+			base = hostMsg
+		} else {
+			return containerMsg
+		}
+	}
+
+	var names []string
+	if containerMsg.Type == TypeMethodReturn {
+		if parsed, err := ParseStringArray(containerMsg); err == nil {
+			names = append(names, parsed...)
+		}
+	}
+	if hostMsg.Type == TypeMethodReturn {
+		if parsed, err := ParseStringArray(hostMsg); err == nil {
+			names = append(names, parsed...)
+		}
+	}
+
+	return ReplaceBody(base, EncodeStringArray(base.byteOrder(), uniqueStrings(names)))
+}
+
+func uniqueStrings(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 // Close closes all connections in this session
@@ -337,57 +615,54 @@ func (s *ClientSession) Close() {
 	}
 }
 
-// Helper: extract the first string argument from the message body
 func extractFirstStringArg(msg *Message) string {
-
-	// In D-Bus wire format:
-	// The body starts after HeaderLength
-	if int(msg.HeaderLength)+4 > len(msg.Raw) {
+	stringsInBody := extractBodyStrings(msg)
+	if len(stringsInBody) == 0 {
 		return ""
+	}
+	return stringsInBody[0]
+}
+
+func extractBodyStrings(msg *Message) []string {
+	if msg == nil || int(msg.HeaderLength)+4 > len(msg.Raw) {
+		return nil
 	}
 
 	body := msg.Raw[msg.HeaderLength:]
-	var order binary.ByteOrder
-	if msg.Endianness == 'l' {
-		order = binary.LittleEndian
-	} else {
-		order = binary.BigEndian
+	order := msg.byteOrder()
+	var out []string
+	pos := 0
+	for pos+4 <= len(body) {
+		pos = align(pos, 4)
+		if pos+4 > len(body) {
+			break
+		}
+		strLen := int(order.Uint32(body[pos : pos+4]))
+		pos += 4
+		if strLen < 0 || pos+strLen+1 > len(body) {
+			break
+		}
+		out = append(out, string(body[pos:pos+strLen]))
+		pos += strLen + 1
 	}
-
-	if len(body) < 4 {
-		return ""
-	}
-
-	strLen := int(order.Uint32(body[:4]))
-	if len(body) < 4+strLen {
-		return ""
-	}
-
-	return string(body[4 : 4+strLen])
+	return out
 }
 
 // NewErrorMessage constructs a D-Bus Error response message
 func NewErrorMessage(replyTo *Message, errorName string, errorText string, serial uint32) *Message {
 
-	// Error body is signature 's'
 	bodyBytes := make([]byte, 4+len(errorText)+1)
 	binary.LittleEndian.PutUint32(bodyBytes[:4], uint32(len(errorText)))
 	copy(bodyBytes[4:], errorText)
 	bodyBytes[4+len(errorText)] = 0
 	bodyLen := uint32(len(bodyBytes))
 
-	// Build header fields:
-	// 4: ErrorName (signature 's')
-	// 5: ReplySerial (signature 'u')
-	// 7: Destination (signature 's', if replyTo.Sender != "")
-	// 8: Signature (signature 'g') = "s"
 	var fields []byte
-
-	// Field 4: ErrorName
 	fields = appendFieldString(fields, HeaderErrorName, errorName)
-	// Field 5: ReplySerial
 	fields = appendFieldUint32(fields, HeaderReplySerial, replyTo.Serial)
-	// Field 8: Signature "s"
+	if replyTo.Sender != "" {
+		fields = appendFieldString(fields, HeaderDestination, replyTo.Sender)
+	}
 	fields = appendFieldSignature(fields, "s")
 
 	headerFieldsLen := uint32(len(fields))
@@ -397,10 +672,10 @@ func NewErrorMessage(replyTo *Message, errorName string, errorText string, seria
 	}
 
 	header := make([]byte, paddedHeaderLen)
-	header[0] = 'l'       // Little endian
-	header[1] = TypeError // Type = Error
-	header[2] = 0x01      // No reply expected
-	header[3] = 1         // Protocol version
+	header[0] = 'l'
+	header[1] = TypeError
+	header[2] = 0x01
+	header[3] = 1
 	binary.LittleEndian.PutUint32(header[4:8], bodyLen)
 	binary.LittleEndian.PutUint32(header[8:12], serial)
 	binary.LittleEndian.PutUint32(header[12:16], headerFieldsLen)
@@ -425,7 +700,6 @@ func NewErrorMessage(replyTo *Message, errorName string, errorText string, seria
 
 func appendFieldString(buf []byte, code byte, val string) []byte {
 
-	// Align struct to 8 bytes relative to offset 16
 	offset := 16 + len(buf)
 	if rem := offset % 8; rem != 0 {
 		pad := 8 - rem
@@ -434,10 +708,9 @@ func appendFieldString(buf []byte, code byte, val string) []byte {
 		}
 	}
 
-	buf = append(buf, code)      // field code
-	buf = append(buf, 1, 's', 0) // variant signature "s\0"
+	buf = append(buf, code)
+	buf = append(buf, 1, 's', 0)
 
-	// String length (aligned to 4 bytes)
 	offset = 16 + len(buf)
 	if rem := offset % 4; rem != 0 {
 		pad := 4 - rem
@@ -465,7 +738,7 @@ func appendFieldUint32(buf []byte, code byte, val uint32) []byte {
 	}
 
 	buf = append(buf, code)
-	buf = append(buf, 1, 'u', 0) // variant signature "u\0"
+	buf = append(buf, 1, 'u', 0)
 
 	offset = 16 + len(buf)
 	if rem := offset % 4; rem != 0 {
@@ -492,7 +765,7 @@ func appendFieldSignature(buf []byte, sig string) []byte {
 	}
 
 	buf = append(buf, HeaderSignature)
-	buf = append(buf, 1, 'g', 0) // variant signature "g\0"
+	buf = append(buf, 1, 'g', 0)
 	buf = append(buf, byte(len(sig)))
 	buf = append(buf, sig...)
 	buf = append(buf, 0)

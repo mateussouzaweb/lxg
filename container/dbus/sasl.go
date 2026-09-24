@@ -9,8 +9,22 @@ import (
 	"strings"
 )
 
-// AuthenticateClient performs the SASL handshake with an incoming client connection
-// It returns any unconsumed bytes read from the client that belong to the binary stream
+const serverGUID = "10000000000000000000000000000000"
+
+const (
+	saslRejected      = "REJECTED EXTERNAL\r\n"
+	saslOK            = "OK " + serverGUID + "\r\n"
+	saslDataChallenge = "DATA\r\n"
+	saslAgreeUnixFD   = "AGREE_UNIX_FD\r\n"
+)
+
+func writeSASL(conn *net.UnixConn, line string) error {
+	_, err := conn.Write([]byte(line))
+	return err
+}
+
+// AuthenticateClient performs the SASL handshake with an incoming client connection.
+// It returns any unconsumed bytes read from the client that belong to the binary stream.
 func AuthenticateClient(conn *net.UnixConn) ([]byte, error) {
 
 	// First byte in D-Bus Unix domain socket must be a null byte \0
@@ -24,7 +38,6 @@ func AuthenticateClient(conn *net.UnixConn) ([]byte, error) {
 	}
 
 	reader := bufio.NewReader(conn)
-	var extraBytes []byte
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -33,24 +46,58 @@ func AuthenticateClient(conn *net.UnixConn) ([]byte, error) {
 		}
 
 		line = strings.TrimRight(line, "\r\n")
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			if err := writeSASL(conn, saslRejected); err != nil {
+				return nil, err
+			}
+			continue
+		}
 
-		if strings.HasPrefix(line, "AUTH") {
-			// Accept any AUTH (typically AUTH EXTERNAL)
-			guid := "10000000000000000000000000000000"
-			_, err = conn.Write(fmt.Appendf(nil, "OK %s\r\n", guid))
-			if err != nil {
+		switch parts[0] {
+		case "AUTH":
+			// Bare AUTH is a probe: advertise supported mechanisms.
+			// GDBus (gdbus, gio) always starts this way and expects
+			// "REJECTED EXTERNAL", not OK.
+			if len(parts) == 1 {
+				if err := writeSASL(conn, saslRejected); err != nil {
+					return nil, err
+				}
+				continue
+			}
+
+			if parts[1] != "EXTERNAL" {
+				if err := writeSASL(conn, saslRejected); err != nil {
+					return nil, err
+				}
+				continue
+			}
+
+			// AUTH EXTERNAL <identity>: accept immediately.
+			// AUTH EXTERNAL with no initial response: send an empty
+			// DATA challenge so the client can reply with DATA.
+			if len(parts) >= 3 {
+				if err := writeSASL(conn, saslOK); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := writeSASL(conn, saslDataChallenge); err != nil {
+					return nil, err
+				}
+			}
+
+		case "DATA":
+			if err := writeSASL(conn, saslOK); err != nil {
 				return nil, err
 			}
 
-		} else if strings.HasPrefix(line, "NEGOTIATE_UNIX_FD") {
-			// Agree to FD passing
-			_, err = conn.Write([]byte("AGREE_UNIX_FD\r\n"))
-			if err != nil {
+		case "NEGOTIATE_UNIX_FD":
+			if err := writeSASL(conn, saslAgreeUnixFD); err != nil {
 				return nil, err
 			}
 
-		} else if strings.HasPrefix(line, "BEGIN") {
-			// Handshake is finished! Check if there are buffered bytes remaining
+		case "BEGIN":
+			var extraBytes []byte
 			buffered := reader.Buffered()
 			if buffered > 0 {
 				extraBytes = make([]byte, buffered)
@@ -59,18 +106,19 @@ func AuthenticateClient(conn *net.UnixConn) ([]byte, error) {
 					return nil, err
 				}
 			}
+			return extraBytes, nil
 
-			break
-		} else {
-			// Reject unknown commands
-			_, err = conn.Write([]byte("REJECTED EXTERNAL\r\n"))
-			if err != nil {
+		case "CANCEL", "ERROR":
+			if err := writeSASL(conn, saslRejected); err != nil {
+				return nil, err
+			}
+
+		default:
+			if err := writeSASL(conn, saslRejected); err != nil {
 				return nil, err
 			}
 		}
 	}
-
-	return extraBytes, nil
 }
 
 // AuthenticateUpstream performs the SASL handshake as a client to an upstream D-Bus daemon

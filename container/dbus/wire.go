@@ -103,8 +103,12 @@ func (r *MessageReader) ReadMessage() (*Message, error) {
 			if err != nil {
 				return err
 			}
-			// n==0, oobn==0, no error: should not happen on blocking Unix socket
-			// but guard against infinite loop
+			if oobn > 0 {
+				// SCM_RIGHTS arrived without payload bytes; that is enough
+				// when we are waiting for file descriptors.
+				return nil
+			}
+			return errors.New("empty read from dbus socket")
 		}
 	}
 
@@ -156,13 +160,106 @@ func (r *MessageReader) ReadMessage() (*Message, error) {
 		return nil, err
 	}
 
-	// Attach file descriptors if present
-	if msg.UnixFDs > 0 && len(r.pendingFDs) >= int(msg.UnixFDs) {
+	// FDs can arrive in a later recvmsg than the message bytes.
+	if msg.UnixFDs > 0 {
+		for len(r.pendingFDs) < int(msg.UnixFDs) {
+			if err := readMore(); err != nil {
+				return nil, err
+			}
+		}
 		msg.FDs = append([]int(nil), r.pendingFDs[:msg.UnixFDs]...)
 		r.pendingFDs = r.pendingFDs[msg.UnixFDs:]
 	}
 
 	return msg, nil
+}
+
+func (m *Message) byteOrder() binary.ByteOrder {
+	if m.Endianness == 'B' {
+		return binary.BigEndian
+	}
+	return binary.LittleEndian
+}
+
+// ParseStringArray decodes a D-Bus body with signature "as"
+func ParseStringArray(msg *Message) ([]string, error) {
+	if msg == nil || int(msg.HeaderLength) > len(msg.Raw) {
+		return nil, errors.New("message has no body")
+	}
+
+	body := msg.Raw[msg.HeaderLength:]
+	order := msg.byteOrder()
+	if len(body) < 4 {
+		return nil, errors.New("short string array")
+	}
+
+	arrayLen := int(order.Uint32(body[:4]))
+	pos := 4
+	end := 4 + arrayLen
+	if end > len(body) {
+		return nil, errors.New("string array length exceeds body")
+	}
+
+	var out []string
+	for pos < end {
+		pos = align(pos, 4)
+		if pos+4 > end {
+			break
+		}
+		strLen := int(order.Uint32(body[pos : pos+4]))
+		pos += 4
+		if pos+strLen+1 > len(body) {
+			return nil, errors.New("short string in array")
+		}
+		out = append(out, string(body[pos:pos+strLen]))
+		pos += strLen + 1
+	}
+
+	return out, nil
+}
+
+// EncodeStringArray encodes a D-Bus value with signature "as"
+func EncodeStringArray(order binary.ByteOrder, names []string) []byte {
+	var inner []byte
+	for _, name := range names {
+		for len(inner)%4 != 0 {
+			inner = append(inner, 0)
+		}
+		lenbuf := make([]byte, 4)
+		order.PutUint32(lenbuf, uint32(len(name)))
+		inner = append(inner, lenbuf...)
+		inner = append(inner, name...)
+		inner = append(inner, 0)
+	}
+
+	out := make([]byte, 4+len(inner))
+	order.PutUint32(out[:4], uint32(len(inner)))
+	copy(out[4:], inner)
+	return out
+}
+
+// ReplaceBody returns a copy of msg with a new body and updated length
+func ReplaceBody(msg *Message, body []byte) *Message {
+	headerLen := int(msg.HeaderLength)
+	if headerLen > len(msg.Raw) {
+		headerLen = len(msg.Raw)
+	}
+
+	raw := make([]byte, headerLen+len(body))
+	copy(raw, msg.Raw[:headerLen])
+	copy(raw[headerLen:], body)
+	msg.byteOrder().PutUint32(raw[4:8], uint32(len(body)))
+
+	out, err := ParseHeader(raw)
+	if err != nil {
+		copied := *msg
+		copied.Raw = raw
+		copied.BodyLength = uint32(len(body))
+		copied.TotalLength = uint32(len(raw))
+		copied.FDs = nil
+		return &copied
+	}
+	return out
 }
 
 // ParseHeader parses D-Bus message header fields from raw bytes
