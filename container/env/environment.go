@@ -135,18 +135,32 @@ func InitEnvironment(ctx *command.Context) error {
 	}
 
 	// Define environment variables
-	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
-	xAuth := userPath("/lxg.xauth")
 	variables := map[string]string{
 		"DISPLAY":         ":0",
 		"WAYLAND_DISPLAY": "wayland-0",
-		"PULSE_SERVER":    pulseServer,
-		"XAUTHORITY":      xAuth,
+	}
+
+	// Set xWayland auth
+	xAuthPath := userPath("/lxg.xauth")
+	_, err = os.Stat(xAuthPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	} else if err == nil {
+		variables["XAUTHORITY"] = xAuthPath
+	}
+
+	// Set pulse server variable
+	pulsePath := userPath("/pulse/native")
+	_, err = os.Stat(pulsePath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	} else if err == nil {
+		pulseServer := fmt.Sprintf("unix:%s", pulsePath)
+		variables["PULSE_SERVER"] = pulseServer
 	}
 
 	// Set D-Bus address to first available address
 	// Priority: router, proxy, native bus
-	dBusAddress := ""
 	dBusSources := []string{
 		userPath("/lxg.router"),
 		userPath("/lxg.bus"),
@@ -161,12 +175,9 @@ func InitEnvironment(ctx *command.Context) error {
 			continue
 		}
 
-		dBusAddress = fmt.Sprintf("unix:path=%s", dBusPath)
-		break
-	}
-
-	if dBusAddress != "" {
+		dBusAddress := fmt.Sprintf("unix:path=%s", dBusPath)
 		variables["DBUS_SESSION_BUS_ADDRESS"] = dBusAddress
+		break
 	}
 
 	// Append XDG details
