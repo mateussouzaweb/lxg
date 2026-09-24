@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strings"
 
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/container"
@@ -35,7 +34,7 @@ func handle(args []string) error {
 	insideContainer := containerEnv || fromHostFlag
 
 	// Block execution based on context
-	hostOnly := []string{"listen", "setup", "start", "stop", "run"}
+	hostOnly := []string{"listen", "setup", "start", "stop", "restart", "run"}
 	containerOnly := []string{"container"}
 
 	if insideContainer && slices.Contains(hostOnly, name) {
@@ -49,39 +48,35 @@ func handle(args []string) error {
 	case "help", "--help", "-h":
 		ctx := command.NewContext(args)
 		return help.Print(ctx)
+
 	case "listen":
 		ctx := command.NewContext(args)
 		return host.Init(ctx)
-	case "setup", "start", "stop", "run":
 
-		// Extract container name
-		container := "ubuntu"
-		if len(args) > 0 {
-			for _, arg := range args {
-				if !strings.HasPrefix(arg, "--") {
-					container = arg
-					args = extract(args, container)
-					break
-				}
-			}
-		}
-
-		// Create context
+	case "setup":
 		ctx := command.NewContext(args)
-		ctx.Container = container
+		ctx = command.WithContainer(ctx)
+		return host.Setup(ctx)
 
-		switch name {
-		case "setup":
-			return host.Setup(ctx)
-		case "start":
-			return lxc.StartContainer(ctx)
-		case "stop":
-			return lxc.StopContainer(ctx)
-		case "restart":
-			return lxc.RestartContainer(ctx)
-		case "run":
-			return lxc.RunCommand(ctx)
-		}
+	case "start":
+		ctx := command.NewContext(args)
+		ctx = command.WithContainer(ctx)
+		return lxc.StartContainer(ctx)
+
+	case "stop":
+		ctx := command.NewContext(args)
+		ctx = command.WithContainer(ctx)
+		return lxc.StopContainer(ctx)
+
+	case "restart":
+		ctx := command.NewContext(args)
+		ctx = command.WithContainer(ctx)
+		return lxc.RestartContainer(ctx)
+
+	case "run":
+		ctx := command.NewContext(args)
+		ctx = command.WithContainer(ctx)
+		return lxc.RunCommand(ctx)
 
 	case "container":
 		if len(args) == 0 {
