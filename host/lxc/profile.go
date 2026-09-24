@@ -77,12 +77,13 @@ func AttachProfile(ctx *command.Context) (bool, error) {
 	cmd := exec.Command("lxc", args...)
 	cmd.Stdin = os.Stdin
 
+	searchValue := fmt.Sprintf("/1.0/instances/%s", ctx.Container)
 	result, err := command.Execute(cmd)
 	if err != nil {
 		return false, fmt.Errorf("profile show error: %w", err)
 	} else if result.ExitCode >= 1 {
 		return false, fmt.Errorf("profile show error: %s", result.Error)
-	} else if strings.Contains(result.Output, ctx.Container) {
+	} else if strings.Contains(result.Output, searchValue) {
 		return false, nil
 	}
 
