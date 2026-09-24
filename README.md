@@ -118,7 +118,7 @@ NOTE: Package names below are for Debian/Ubuntu based containers and names may v
 - Wayland: `wayland-utils`
 - X11: `mesa-utils x11-utils x11-xserver-utils`
 - XDG: `xdg-utils xdg-user-dirs dbus-bin dbus-user-session`
-- PipeWire: `pipewire-bin pipewire-alsa pulseaudio-utils alsa-utils`
+- PipeWire: `pipewire pipewire-bin pipewire-alsa alsa-utils`
 - Secrets: `libsecret-1-0 libsecret-tools`
 - Fonts: `fontconfig fonts-liberation fonts-dejavu fonts-ubuntu fonts-noto fonts-roboto fonts-open-sans fonts-firacode`
 - Others: `zenity`
