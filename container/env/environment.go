@@ -137,7 +137,6 @@ func InitEnvironment(ctx *command.Context) error {
 	// Define environment variables
 	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
 	variables := map[string]string{
-		"LXG_CONTAINER":   "1",
 		"DISPLAY":         ":0",
 		"WAYLAND_DISPLAY": "wayland-0",
 		"PULSE_SERVER":    pulseServer,
