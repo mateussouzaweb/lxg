@@ -34,6 +34,7 @@ func BridgeRequest(ctx *command.Context) error {
 			command = arg
 			index := slices.Index(args, command)
 			args = append(args[:index], args[index+1:]...)
+			break
 		}
 	}
 

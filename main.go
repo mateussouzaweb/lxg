@@ -57,6 +57,7 @@ func handle(args []string) error {
 				if !strings.HasPrefix(arg, "--") {
 					container = arg
 					args = extract(args, container)
+					break
 				}
 			}
 		}
