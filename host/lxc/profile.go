@@ -53,6 +53,13 @@ func SetupProfile(ctx *command.Context) (bool, error) {
 		[]byte(ctx.User),
 	)
 
+	// Define home on profile
+	profileSpec = bytes.ReplaceAll(
+		profileSpec,
+		[]byte(":HOME"),
+		[]byte(ctx.Home),
+	)
+
 	// Create profile from specs
 	args = []string{"profile", "create", ctx.Profile}
 	stdin := bytes.NewBuffer(profileSpec)
