@@ -10,8 +10,9 @@ import (
 type Context struct {
 	Container string
 	Profile   string
-	User      string
 	UID       string
+	User      string
+	Home      string
 	Args      []string
 }
 
@@ -20,6 +21,7 @@ func NewContext(args []string) *Context {
 
 	uid := fmt.Sprintf("%d", os.Getuid())
 	user := os.Getenv("USER")
+	home := os.Getenv("HOME")
 
 	profile := "integrated"
 	profileFlags := []string{
@@ -41,6 +43,7 @@ func NewContext(args []string) *Context {
 		Profile:   profile,
 		UID:       uid,
 		User:      user,
+		Home:      home,
 		Args:      args,
 	}
 }

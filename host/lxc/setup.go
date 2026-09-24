@@ -70,6 +70,5 @@ func Setup(ctx *command.Context) error {
 		return fmt.Errorf("container error: %w", err)
 	}
 
-	fmt.Printf("Host and container has been configured.\n")
 	return nil
 }

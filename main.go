@@ -68,7 +68,7 @@ func handle(args []string) error {
 
 		switch name {
 		case "setup":
-			return lxc.Setup(ctx)
+			return host.Setup(ctx)
 		case "start":
 			return lxc.StartContainer(ctx)
 		case "stop":
