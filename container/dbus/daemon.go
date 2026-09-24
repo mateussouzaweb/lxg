@@ -19,7 +19,7 @@ func EnsureRouter(ctx *command.Context) error {
 
 	// Isolated containers does not have the host proxy socket
 	// Do not run D-Bus router if host proxy is not present
-	hostProxySocket := fmt.Sprintf("/lxg/run/user/%s/lxg.host", ctx.UID)
+	hostProxySocket := fmt.Sprintf("/lxg/run/user/%s/lxg.bus", ctx.UID)
 	_, err := os.Stat(hostProxySocket)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("start dbus socket error: %w", err)
