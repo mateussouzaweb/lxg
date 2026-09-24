@@ -36,6 +36,20 @@ User | isolated | integrated | shared - must match
 Runtime | isolated | partially isolated | shared
 Bridge | unavailable | integrated | not necessary
 
+## Installation
+
+Go to the project RELEASES page and download the latest version of the script for your Linux architecture:
+
+```bash
+# Download compiled binary
+REPOSITORY="https://github.com/mateussouzaweb/lxg"
+sudo wget $REPOSITORY/releases/latest/download/lxg-amd64 -O ./lxg
+
+# Move binary to correct location
+sudo mv lxg /usr/local/bin/lxg
+sudo chmod +x /usr/local/bin/lxg
+```
+
 ## Building
 
 LXG can be built with Go. Also make sure to put the binary in the correct location:
