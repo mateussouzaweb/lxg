@@ -17,7 +17,7 @@ func Setup(ctx *command.Context) error {
 	}
 
 	fmt.Printf("Installing helper scripts...\n")
-	err = setup.InstallScripts(ctx)
+	err = setup.InstallInitScript(ctx)
 	if err != nil {
 		return fmt.Errorf("setup error: %w", err)
 	}
