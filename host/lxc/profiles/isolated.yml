@@ -10,6 +10,10 @@ devices:
     type: disk
     source: /usr/local/bin/lxg
     path: /usr/local/bin/lxg
+  lxg-x11-auth:
+    type: disk
+    source: /run/user/:UID/lxg.xauth
+    path: /lxg/run/user/:UID/lxg.xauth
   wayland-socket:
     type: disk
     source: /run/user/:UID/wayland-0

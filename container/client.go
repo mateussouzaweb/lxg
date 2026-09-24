@@ -63,7 +63,6 @@ func BridgeRequest(ctx *command.Context) error {
 	request.Wait = waitCmd
 
 	// Connect to LXG socket
-
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return fmt.Errorf("connect to host error: %w", err)

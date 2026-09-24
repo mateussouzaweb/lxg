@@ -11,6 +11,7 @@ import (
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/host/bridge"
 	"github.com/mateussouzaweb/lxg/host/dbus"
+	"github.com/mateussouzaweb/lxg/host/x11"
 )
 
 // Init host daemon services in parallel
@@ -30,7 +31,18 @@ func Init(ctx *command.Context) error {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, 2)
+	errChan := make(chan error, 3)
+
+	// Symlink XWayland Auth
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := x11.LinkAuth(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
 
 	// Start D-Bus proxy in background
 	wg.Add(1)

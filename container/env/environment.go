@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/mateussouzaweb/lxg/command"
 )
@@ -97,6 +96,7 @@ func InitEnvironment(ctx *command.Context) error {
 		hostPath("/wayland-0"):    userPath("/wayland-0"),
 		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
 		hostPath("/lxg.bridge"):   userPath("/lxg.bridge"),
+		hostPath("/lxg.xauth"):    userPath("/lxg.xauth"),
 		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
 		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
 	}
@@ -136,20 +136,12 @@ func InitEnvironment(ctx *command.Context) error {
 
 	// Define environment variables
 	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
+	xAuth := userPath("/lxg.xauth")
 	variables := map[string]string{
 		"DISPLAY":         ":0",
 		"WAYLAND_DISPLAY": "wayland-0",
 		"PULSE_SERVER":    pulseServer,
-	}
-
-	// Find Mutter XWayland authentication file
-	mutterXAuthGlobPattern := filepath.Join(hostRuntime, ".mutter-Xwaylandauth.*")
-	mutterXAuthMatches, err := filepath.Glob(mutterXAuthGlobPattern)
-	if err != nil {
-		return err
-	} else if len(mutterXAuthMatches) > 0 {
-		mutterXAuth := mutterXAuthMatches[0]
-		variables["XAUTHORITY"] = mutterXAuth
+		"XAUTHORITY":      xAuth,
 	}
 
 	// Set D-Bus address to first available address
