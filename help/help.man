@@ -4,7 +4,7 @@ Usage:
 
   lxg help / --help / -h
   lxg listen [ARGS...]
-  lxg setup [--integrated|--isolated|--privileged] [CONTAINER] [ARGS...] 
+  lxg setup [CONTAINER] [ARGS...]
   lxg start [CONTAINER] [ARGS...]
   lxg stop [CONTAINER] [ARGS...]
   lxg run [CONTAINER] [ARGS...]
@@ -33,3 +33,12 @@ Container Commands:
   init       Initialize LXG environment support and system services
   router     Run the D-Bus router daemon inside the container
   request    Request command execution on host via bridge
+
+---
+
+The setup command supports the container profile flag to determine how the container should run. Only one option can be chosen when running the command:
+
+setup [CONTAINER]
+  --integrated   Default. Container run integrated with host.
+  --isolated     Only GPU, Display and Audio are shared from host.
+  --privileged   Share everything that is possible.

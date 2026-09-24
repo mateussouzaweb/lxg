@@ -2,6 +2,7 @@ package container
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -9,15 +10,20 @@ import (
 	"strings"
 
 	"github.com/mateussouzaweb/lxg/command"
-	"github.com/mateussouzaweb/lxg/container/env"
 	"github.com/mateussouzaweb/lxg/host/bridge"
 )
 
 // BridgeRequest creates a new requisition to perform command on host, via socket
 func BridgeRequest(ctx *command.Context) error {
 
-	// Bridge cannot be run on isolated containers
-	if env.IsIsolated() {
+	// Isolated containers does not have the bridge socket
+	// We show a more specific message on this case
+	socketPath := fmt.Sprintf("/run/user/%s/lxg.bridge", ctx.UID)
+
+	_, err := os.Stat(socketPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("socket verification error: %w", err)
+	} else if err != nil && errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("not callable on isolated containers")
 	}
 
@@ -57,7 +63,7 @@ func BridgeRequest(ctx *command.Context) error {
 	request.Wait = waitCmd
 
 	// Connect to LXG socket
-	socketPath := fmt.Sprintf("/run/user/%s/lxg.bridge", ctx.UID)
+
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		return fmt.Errorf("connect to host error: %w", err)

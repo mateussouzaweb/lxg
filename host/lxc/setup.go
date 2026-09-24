@@ -50,6 +50,7 @@ func Setup(ctx *command.Context) error {
 	args := []string{
 		"exec", ctx.Container, "--",
 		"/usr/local/bin/lxg", "container", "setup",
+		"--from-host", fmt.Sprintf("--%s", ctx.Profile),
 	}
 
 	cmd := exec.Command("lxc", args...)

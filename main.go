@@ -9,7 +9,6 @@ import (
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/container"
 	"github.com/mateussouzaweb/lxg/container/dbus"
-	"github.com/mateussouzaweb/lxg/container/env"
 	"github.com/mateussouzaweb/lxg/help"
 	"github.com/mateussouzaweb/lxg/host"
 	"github.com/mateussouzaweb/lxg/host/lxc"
@@ -29,14 +28,19 @@ func handle(args []string) error {
 	args = extract(args, name)
 
 	// Check if command was called from host or container
-	// Need to block execution based on context
-	isContainer := env.IsContainer()
+	// Containers has the LXG_CONTAINER environment variable
+	// On container setup, special --from-host flag is passed
+	containerEnv := os.Getenv("LXG_CONTAINER") == "1"
+	fromHostFlag := slices.Contains(args, "--from-host")
+	insideContainer := containerEnv || fromHostFlag
+
+	// Block execution based on context
 	hostOnly := []string{"listen", "setup", "start", "stop", "run"}
 	containerOnly := []string{"container"}
 
-	if isContainer && slices.Contains(hostOnly, name) {
+	if insideContainer && slices.Contains(hostOnly, name) {
 		return fmt.Errorf("method can be run only on host")
-	} else if !isContainer && slices.Contains(containerOnly, name) {
+	} else if !insideContainer && slices.Contains(containerOnly, name) {
 		return fmt.Errorf("method can be run only on container")
 	}
 

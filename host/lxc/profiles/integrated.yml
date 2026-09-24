@@ -1,8 +1,6 @@
 name: integrated
 description: Integrated profile for GUI applications with LXG
 config:
-  environment.LXG_CONTAINER: 1
-  environment.LXG_INTEGRATED: 1
   boot.autostart: 'true'
   raw.idmap: both :UID :UID
   security.nesting: 'true'

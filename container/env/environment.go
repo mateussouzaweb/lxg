@@ -137,6 +137,7 @@ func InitEnvironment(ctx *command.Context) error {
 	// Define environment variables
 	pulseServer := fmt.Sprintf("unix:%s", userPath("/pulse/native"))
 	variables := map[string]string{
+		"LXG_CONTAINER":   "1",
 		"DISPLAY":         ":0",
 		"WAYLAND_DISPLAY": "wayland-0",
 		"PULSE_SERVER":    pulseServer,
@@ -173,22 +174,19 @@ func InitEnvironment(ctx *command.Context) error {
 		break
 	}
 
-	// Isolated containers should not enforce the D-Bus address
-	if !IsIsolated() && dBusAddress != "" {
+	if dBusAddress != "" {
 		variables["DBUS_SESSION_BUS_ADDRESS"] = dBusAddress
 	}
 
-	// Append XDG on integrated and privileged containers
-	if IsIntegrated() || IsPrivileged() {
-		xdgDesktop := "GNOME"
-		xdgMenuPrefix := "gnome-"
-		xdgRuntimeDir := userPath("")
+	// Append XDG details
+	xdgDesktop := "GNOME"
+	xdgMenuPrefix := "gnome-"
+	xdgRuntimeDir := userPath("")
 
-		variables["XDG_SESSION_TYPE"] = "wayland"
-		variables["XDG_RUNTIME_DIR"] = xdgRuntimeDir
-		variables["XDG_CURRENT_DESKTOP"] = xdgDesktop
-		variables["XDG_MENU_PREFIX"] = xdgMenuPrefix
-	}
+	variables["XDG_SESSION_TYPE"] = "wayland"
+	variables["XDG_RUNTIME_DIR"] = xdgRuntimeDir
+	variables["XDG_CURRENT_DESKTOP"] = xdgDesktop
+	variables["XDG_MENU_PREFIX"] = xdgMenuPrefix
 
 	// Export environment variables
 	// Use export statements for the shell to evaluate

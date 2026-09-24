@@ -1,8 +1,6 @@
 name: isolated
 description: Isolated profile for GUI applications with LXG
 config:
-  environment.LXG_CONTAINER: 1
-  environment.LXG_ISOLATED: 1
   boot.autostart: 'true'
   raw.idmap: both :UID :UID
 devices:
