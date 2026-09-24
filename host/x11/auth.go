@@ -25,7 +25,7 @@ func LinkAuth(ctx *command.Context, cancel context.Context) error {
 		return nil
 	}
 
-	mutterXAuth := matches[0]
+	xAuthFile := matches[0]
 
 	// Remove old auth link if exists
 	err = os.Remove(authLink)
@@ -34,8 +34,9 @@ func LinkAuth(ctx *command.Context, cancel context.Context) error {
 	}
 
 	// Make content copy to destination
-	// NOTE: Due this copy process, must run on every xWayland reload
-	content, err := os.ReadFile(mutterXAuth)
+	// Due this copy process, must run on every auth reload
+	// Since service runs after session login, we do not expect this reload is necessary
+	content, err := os.ReadFile(xAuthFile)
 	if err != nil {
 		return fmt.Errorf("read x11 auth error: %w", err)
 	}

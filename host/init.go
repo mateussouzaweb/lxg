@@ -33,7 +33,7 @@ func Init(ctx *command.Context) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 3)
 
-	// Symlink XWayland Auth
+	// Symlink X11 auth
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

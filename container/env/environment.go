@@ -140,7 +140,7 @@ func InitEnvironment(ctx *command.Context) error {
 		"WAYLAND_DISPLAY": "wayland-0",
 	}
 
-	// Set xWayland auth
+	// Set X11 auth
 	xAuthPath := userPath("/lxg.xauth")
 	_, err = os.Stat(xAuthPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
