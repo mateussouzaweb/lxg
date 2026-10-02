@@ -21,11 +21,17 @@ func LinkAuth(ctx *command.Context, cancel context.Context) error {
 	matches, err := filepath.Glob(globPattern)
 	if err != nil {
 		return fmt.Errorf("find x11 auth error: %w", err)
-	} else if len(matches) == 0 {
-		return nil
 	}
 
-	xAuthFile := matches[0]
+	// When not exist, create a empty auth file
+	if len(matches) == 0 {
+		err := os.WriteFile(authLink, []byte(""), 0600)
+		if err != nil {
+			return fmt.Errorf("link x11 auth error: %w", err)
+		}
+
+		return nil
+	}
 
 	// Remove old auth link if exists
 	err = os.Remove(authLink)
@@ -36,6 +42,7 @@ func LinkAuth(ctx *command.Context, cancel context.Context) error {
 	// Make content copy to destination
 	// Due this copy process, must run on every auth reload
 	// Since service runs after session login, we do not expect this reload is necessary
+	xAuthFile := matches[0]
 	content, err := os.ReadFile(xAuthFile)
 	if err != nil {
 		return fmt.Errorf("read x11 auth error: %w", err)
