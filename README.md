@@ -2,7 +2,7 @@
 
 LXG is an alternative to `distrobox` that runs directly on LXC containers, providing seamless desktop integration for GUI applications. While Distrobox focuses on integrating applications from Docker, Podman, or Lilipod containers with the host, LXG takes a different approach by using LXC system containers.
 
-We chose LXC because by default it provides persistency and a complete Linux environments with features such as `systemd`, `init`, package manager, SSH, networking, and background services. LXG builds on this foundation by adding only the missing desktop integration layer, making applications running in LXC containers feel like native applications on the host.
+We chose LXC because by default it provides persistency and a complete Linux environment with features such as `systemd`, `init`, package manager, SSH, networking, and background services. LXG builds on this foundation by adding only the missing desktop integration layer, making applications running in LXC containers feel like native applications on the host.
 
 In short, LXG provides desktop integration for your LXC containers.
 
@@ -48,6 +48,7 @@ sudo wget $REPOSITORY/releases/latest/download/lxg-amd64 -O ./lxg
 # Move binary to correct location
 sudo mv lxg /usr/local/bin/lxg
 sudo chmod +x /usr/local/bin/lxg
+sudo setcap cap_sys_admin+ep /usr/local/bin/lxg
 ```
 
 ## Building
@@ -60,6 +61,8 @@ go build -o bin/lxg main.go
 
 # Move to local binaries
 sudo mv bin/lxg /usr/local/bin/lxg
+sudo chmod +x /usr/local/bin/lxg
+sudo setcap cap_sys_admin+ep /usr/local/bin/lxg
 ```
 
 ## Requirements
@@ -135,7 +138,7 @@ NOTE: Package names below are for Debian/Ubuntu based containers and names may v
 - PipeWire: `pipewire pipewire-bin pipewire-alsa alsa-utils`
 - Secrets: `libsecret-1-0 libsecret-tools`
 - Fonts: `fontconfig fonts-liberation fonts-dejavu fonts-ubuntu fonts-noto fonts-roboto fonts-open-sans fonts-firacode`
-- Others: `zenity`
+- Others: `zenity yaru-theme-icon`
 
 When using fully isolated containers, the following packages are also required:
 
