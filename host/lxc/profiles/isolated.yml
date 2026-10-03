@@ -10,24 +10,8 @@ devices:
     type: disk
     source: /usr/local/bin/lxg
     path: /usr/local/bin/lxg
-  lxg-x11-auth:
+  lxg-run:
     type: disk
-    source: /run/user/:UID/lxg.xauth
-    path: /lxg/run/user/:UID/lxg.xauth
-  wayland-socket:
-    type: disk
-    source: /run/user/:UID/wayland-0
-    path: /lxg/run/user/:UID/wayland-0
-  pipewire-socket:
-    type: disk
-    source: /run/user/:UID/pipewire-0
-    path: /lxg/run/user/:UID/pipewire-0
-  pulse-socket:
-    type: disk
-    source: /run/user/:UID/pulse/native
-    path: /lxg/run/user/:UID/pulse/native
-  x11-socket:
-    type: disk
-    source: /tmp/.X11-unix
-    path: /lxg/tmp/.X11-unix
-    required: 'false'
+    source: /run/user/:UID/lxg
+    path: /lxg/run/user/:UID
+    recursive: 'true'

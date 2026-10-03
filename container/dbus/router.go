@@ -38,8 +38,8 @@ func NewRouter(ctx *command.Context) *Router {
 	uid := ctx.UID
 	return &Router{
 		UID:             uid,
-		RouterSocket:    fmt.Sprintf("/run/user/%s/lxg.router", uid),
-		HostSocket:      fmt.Sprintf("/run/user/%s/lxg.bus", uid),
+		RouterSocket:    fmt.Sprintf("/run/user/%s/lxg/router", uid),
+		HostSocket:      fmt.Sprintf("/run/user/%s/lxg/bus", uid),
 		ContainerSocket: fmt.Sprintf("/run/user/%s/bus", uid),
 	}
 }

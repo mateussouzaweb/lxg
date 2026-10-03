@@ -17,23 +17,13 @@ func InitEnvironment(ctx *command.Context) error {
 		return nil
 	}
 
-	hostRuntime := fmt.Sprintf("/lxg/run/user/%d", uid)
-	hostPath := func(path string) string {
-		return fmt.Sprintf("%s%s", hostRuntime, path)
-	}
-
-	userRuntime := fmt.Sprintf("/run/user/%d", uid)
-	userPath := func(path string) string {
-		return fmt.Sprintf("%s%s", userRuntime, path)
+	// Return user runtime path
+	runPath := func(path string) string {
+		return fmt.Sprintf("/run/user/%d/%s", uid, path)
 	}
 
 	// Ensure runtime directory exists
-	err := os.MkdirAll(userPath(""), 0700)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(userPath("/pulse"), 0700)
+	err := os.MkdirAll(runPath("pulse"), 0700)
 	if err != nil {
 		return err
 	}
@@ -91,14 +81,11 @@ func InitEnvironment(ctx *command.Context) error {
 	// Final symlink list vary based on container type
 	// When host path not available, symlink is skipped
 	list := map[string]string{
-		hostPath("/pulse/native"): userPath("/pulse/native"),
-		hostPath("/pipewire-0"):   userPath("/pipewire-0"),
-		hostPath("/wayland-0"):    userPath("/wayland-0"),
-		hostPath("/lxg.bus"):      userPath("/lxg.bus"),
-		hostPath("/lxg.bridge"):   userPath("/lxg.bridge"),
-		hostPath("/lxg.xauth"):    userPath("/lxg.xauth"),
-		"/lxg/tmp/.X11-unix/X0":   "/tmp/.X11-unix/X0",
-		"/lxg/tmp/.X11-unix/X1":   "/tmp/.X11-unix/X1",
+		runPath("lxg/pulse-native"): runPath("pulse/native"),
+		runPath("lxg/pipewire-0"):   runPath("pipewire-0"),
+		runPath("lxg/wayland-0"):    runPath("wayland-0"),
+		runPath("lxg/X11-X0"):       "/tmp/.X11-unix/X0",
+		runPath("lxg/X11-X1"):       "/tmp/.X11-unix/X1",
 	}
 
 	// Symlink host runtime sockets
@@ -141,7 +128,7 @@ func InitEnvironment(ctx *command.Context) error {
 	}
 
 	// Set X11 auth
-	xAuthPath := userPath("/lxg.xauth")
+	xAuthPath := runPath("lxg/X11-Xauth")
 	_, err = os.Stat(xAuthPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -150,7 +137,7 @@ func InitEnvironment(ctx *command.Context) error {
 	}
 
 	// Set pulse server variable
-	pulsePath := userPath("/pulse/native")
+	pulsePath := runPath("pulse/native")
 	_, err = os.Stat(pulsePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -162,9 +149,9 @@ func InitEnvironment(ctx *command.Context) error {
 	// Set D-Bus address to first available address
 	// Priority: router, proxy, native bus
 	dBusSources := []string{
-		userPath("/lxg.router"),
-		userPath("/lxg.bus"),
-		userPath("/bus"),
+		runPath("lxg/router"),
+		runPath("lxg/bus"),
+		runPath("bus"),
 	}
 
 	for _, dBusPath := range dBusSources {
@@ -183,7 +170,7 @@ func InitEnvironment(ctx *command.Context) error {
 	// Append XDG details
 	xdgDesktop := "GNOME"
 	xdgMenuPrefix := "gnome-"
-	xdgRuntimeDir := userPath("")
+	xdgRuntimeDir := runPath("")
 
 	variables["XDG_SESSION_TYPE"] = "wayland"
 	variables["XDG_RUNTIME_DIR"] = xdgRuntimeDir

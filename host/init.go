@@ -11,7 +11,7 @@ import (
 	"github.com/mateussouzaweb/lxg/command"
 	"github.com/mateussouzaweb/lxg/host/bridge"
 	"github.com/mateussouzaweb/lxg/host/dbus"
-	"github.com/mateussouzaweb/lxg/host/x11"
+	"github.com/mateussouzaweb/lxg/host/run"
 )
 
 // Init host daemon services in parallel
@@ -31,13 +31,68 @@ func Init(ctx *command.Context) error {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, 3)
+	errChan := make(chan error, 8)
 
-	// Symlink X11 auth
+	// Link wayland
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := x11.LinkAuth(ctx, groupCtx)
+		err := run.LinkWayland(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Link pipewire
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := run.LinkPipewire(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Link pulse native
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := run.LinkPulseNative(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Link X11 zero
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := run.LinkX11Zero(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Link X11 one
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := run.LinkX11One(ctx, groupCtx)
+		if err != nil {
+			errChan <- err
+			cancel()
+		}
+	}()
+
+	// Link X11 auth
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := run.LinkX11Auth(ctx, groupCtx)
 		if err != nil {
 			errChan <- err
 			cancel()

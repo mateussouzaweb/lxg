@@ -18,7 +18,7 @@ import (
 func InitDBus(ctx *command.Context, cancel context.Context) error {
 
 	// Path to LXG D-Bus host proxy
-	proxyPath := fmt.Sprintf("/run/user/%s/lxg.bus", ctx.UID)
+	proxyPath := fmt.Sprintf("/run/user/%s/lxg/bus", ctx.UID)
 
 	// Only run if detect D-Bus session address
 	sessionAddress := os.Getenv("DBUS_SESSION_BUS_ADDRESS")

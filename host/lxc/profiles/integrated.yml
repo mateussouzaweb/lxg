@@ -9,40 +9,16 @@ config:
 devices:
   gpu:
     type: gpu
-  home-share:
-    type: disk
-    source: /home/:USER
-    path: /host/home/:USER
   lxg-binary:
     type: disk
     source: /usr/local/bin/lxg
     path: /usr/local/bin/lxg
-  lxg-dbus-socket:
+  lxg-run:
     type: disk
-    source: /run/user/:UID/lxg.bus
-    path: /lxg/run/user/:UID/lxg.bus
-  lxg-bridge-socket:
+    source: /run/user/:UID/lxg
+    path: /lxg/run/user/:UID
+    recursive: 'true'
+  lxg-home:
     type: disk
-    source: /run/user/:UID/lxg.bridge
-    path: /lxg/run/user/:UID/lxg.bridge
-  lxg-x11-auth:
-    type: disk
-    source: /run/user/:UID/lxg.xauth
-    path: /lxg/run/user/:UID/lxg.xauth
-  wayland-socket:
-    type: disk
-    source: /run/user/:UID/wayland-0
-    path: /lxg/run/user/:UID/wayland-0
-  pipewire-socket:
-    type: disk
-    source: /run/user/:UID/pipewire-0
-    path: /lxg/run/user/:UID/pipewire-0
-  pulse-socket:
-    type: disk
-    source: /run/user/:UID/pulse/native
-    path: /lxg/run/user/:UID/pulse/native
-  x11-socket:
-    type: disk
-    source: /tmp/.X11-unix
-    path: /lxg/tmp/.X11-unix
-    required: 'false'
+    source: /home/:USER
+    path: /lxg/home/:USER
